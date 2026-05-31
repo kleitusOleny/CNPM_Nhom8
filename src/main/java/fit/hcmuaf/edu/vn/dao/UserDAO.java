@@ -4,7 +4,6 @@ import fit.hcmuaf.edu.vn.model.User;
 import jakarta.persistence.*;
 
 import java.util.List;
-
 public class UserDAO {
     private static final EntityManagerFactory emf = Persistence.createEntityManagerFactory("TamTheGoPU");
     
