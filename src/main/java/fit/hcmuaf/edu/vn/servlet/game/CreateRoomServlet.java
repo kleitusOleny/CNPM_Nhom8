@@ -63,5 +63,4 @@ public class CreateRoomServlet extends HttpServlet {
             req.getRequestDispatcher("/views/game/create-room.jsp").forward(req, resp);
         }
     }
-    }
 }
