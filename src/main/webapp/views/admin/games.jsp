@@ -165,7 +165,7 @@
       <form action="${pageContext.request.contextPath}/admin/games" method="GET" class="filter-bar">
         <!-- Giữ lại trạng thái tab hiện tại -->
         <input type="hidden" name="status" value="${filters.status}">
-        
+
         <div style="position:relative;flex:1;">
           <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--color-outline);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input class="form-input" style="padding-left:40px;" type="text" name="player" placeholder="Tìm theo người chơi, ID ván đấu..." value="${filters.player}" onkeypress="if(event.key === 'Enter') this.form.submit()">
@@ -183,7 +183,7 @@
           <option value="Draw" ${filters.result == 'Draw' ? 'selected' : ''}>Hòa</option>
         </select>
         <input class="form-input" type="date" name="date" style="width:150px;" title="Từ ngày" value="${filters.date}" onchange="this.form.submit()">
-        
+
         <!-- Nút Reset nhanh -->
         <a href="${pageContext.request.contextPath}/admin/games" class="btn btn-icon" title="Làm mới bộ lọc">
            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -261,9 +261,9 @@
           <c:if test="${pageData.currentPage > 1}">
             <button class="page-btn" onclick="window.location='?page=${pageData.currentPage - 1}${not empty statusFilter ? '&status=' : ''}${statusFilter}'">←</button>
           </c:if>
-          
+
                     <c:forEach begin="1" end="${pageData.totalPages}" var="i">
-            <button class="page-btn ${pageData.currentPage == i ? 'active' : ''}" 
+            <button class="page-btn ${pageData.currentPage == i ? 'active' : ''}"
                     onclick="window.location='?page=${i}${not empty statusFilter ? '&status=' : ''}${statusFilter}'">${i}</button>
                     </c:forEach>
 
@@ -277,7 +277,6 @@
 </div>
     <script>
         function deleteGame(id) {
-    // Bước 25: Gửi yêu cầu kiểm tra trạng thái lên Server
     const checkData = new URLSearchParams();
     checkData.append('action', 'checkDelete');
     checkData.append('id', id);
@@ -289,12 +288,10 @@
     })
             .then(response => {
       if (response.ok) {
-        // Bước 33-35: Hợp lệ -> Hiển thị Pop-up xác nhận
         if (confirm('⚠️ Bạn có chắc chắn muốn xóa vĩnh viễn ván đấu #' + id + '? Thao tác này không thể hoàn tác.')) {
           executeDelete(id);
         }
                         } else {
-        // Bước 29-31: Không hợp lệ (Ván đấu đang diễn ra)
         response.text().then(text => alert('❌ ' + text));
       }
     })
@@ -302,7 +299,6 @@
   }
 
   function executeDelete(id) {
-    // Bước 36-37: Admin xác nhận -> Thực hiện xóa
     const deleteData = new URLSearchParams();
     deleteData.append('action', 'delete');
     deleteData.append('id', id);
@@ -315,7 +311,6 @@
     .then(response => {
       if (response.ok) {
         alert('✅ Ván đấu đã được xóa thành công!');
-        // Bước 43: Tải lại trang
         window.location.reload();
       } else {
         response.text().then(text => alert('❌ Lỗi xóa: ' + text));

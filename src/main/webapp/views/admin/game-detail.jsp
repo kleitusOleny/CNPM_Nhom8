@@ -26,7 +26,7 @@
 </head>
 <body>
 <div class="layout-wrapper">
-  <!-- Sidebar (Simplified) -->
+  <!-- Sidebar -->
   <aside class="sidebar">
      <div class="sidebar-brand">
        <div class="sidebar-logo">⬡</div>
@@ -36,10 +36,24 @@
        </div>
      </div>
      <nav class="sidebar-nav">
-        <a href="${pageContext.request.contextPath}/admin/games" class="nav-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          Quay lại danh sách
-        </a>
+        <div class="nav-section">
+          <div class="nav-section-label">Điều hướng</div>
+          <a href="${pageContext.request.contextPath}/admin/games" class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Quay lại danh sách
+          </a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Quản lý</div>
+          <a href="${pageContext.request.contextPath}/admin/users" class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Người dùng
+          </a>
+          <a href="${pageContext.request.contextPath}/admin/games" class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+            Ván đấu
+          </a>
+        </div>
      </nav>
   </aside>
 
@@ -53,7 +67,7 @@
 
     <div class="page-body">
       <div class="replay-layout" style="display: flex; gap: 24px; align-items: flex-start;">
-        
+
         <!-- Left: Replay Player -->
         <div class="replay-container" style="flex: 1;">
           <div id="player"></div>
@@ -61,7 +75,7 @@
 
         <!-- Right: Information Panel -->
         <div class="info-panel" style="width: 380px; display: flex; flex-direction: column; gap: 20px;">
-          
+
           <!-- Game Summary Card -->
           <div class="card premium-card" style="background: linear-gradient(135deg, #1a2a3a 0%, #2c3e50 100%); color: white; border: none;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
