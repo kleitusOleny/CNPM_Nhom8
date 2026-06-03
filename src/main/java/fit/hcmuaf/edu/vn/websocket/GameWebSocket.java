@@ -24,9 +24,12 @@ public class GameWebSocket {
     private static Map<Long, Set<String>> confirmationMap = new ConcurrentHashMap<>();
     private static Map<Long, RoomTimer> gameTimers = new ConcurrentHashMap<>();
     // Lưu trữ lịch sử tất cả các trạng thái bàn cờ để xử lý luật Kiếp nâng cao (Superko)
-    private static Map<Long, Set<String>> boardHistoryMap = new ConcurrentHashMap<>();
+    private static Map<Long, Stack<String>> boardHistoryMap = new ConcurrentHashMap<>();
     // Lưu trữ danh sách các người chơi đã chấp nhận đề nghị hòa trong một phòng
     private static Map<Long, Set<String>> drawProposalMap = new ConcurrentHashMap<>();
+    // Lưu trữ các trạng thái bàn cờ để hỗ trợ tính năng Hồi nước đi (Undo)
+    private static Map<Long, Stack<List<GameMove>>> moveHistoryMap = new ConcurrentHashMap<>();
+    private static Map<Long, Set<String>> undoProposalMap = new ConcurrentHashMap<>();
     private final Gson gson = new Gson();
     
     // Luồng chạy ngầm để kiểm tra hết giờ (mỗi 1 giây)
@@ -97,8 +100,10 @@ public class GameWebSocket {
         consecutivePasses.remove(roomId);
         deadStonesMap.remove(roomId);
         confirmationMap.remove(roomId);
-        // Xóa thông tin đề xuất hòa
+        // Xóa thông tin đề xuất hòa và hoàn tác
         drawProposalMap.remove(roomId);
+        moveHistoryMap.remove(roomId);
+        undoProposalMap.remove(roomId);
     }
     
     public static class StoneCoords {
@@ -303,6 +308,8 @@ public class GameWebSocket {
                     gameTimers.remove(roomId);
                     boardHistoryMap.remove(roomId);
                     drawProposalMap.remove(roomId);
+                    moveHistoryMap.remove(roomId);
+                    undoProposalMap.remove(roomId);
                     consecutivePasses.remove(roomId);
                     deadStonesMap.remove(roomId);
                     confirmationMap.remove(roomId);
@@ -317,6 +324,52 @@ public class GameWebSocket {
             if ("DRAW_REJECT".equals(type)) {
                 drawProposalMap.remove(roomId); // Xóa đề xuất trước đó
                 broadcast(roomId, gson.toJson(new GameResponse("DRAW_REJECTED", "Đối thủ đã từ chối đề nghị hòa.")), session);
+                return;
+            }
+            
+            // Xử lý Hồi nước đi (Undo)
+            if ("UNDO_PROPOSE".equals(type)) {
+                Stack<List<GameMove>> stack = moveHistoryMap.get(roomId);
+                if (stack == null || stack.isEmpty()) {
+                    session.getBasicRemote().sendText(gson.toJson(new GameResponse("INVALID", "Không có nước đi nào để hoàn tác!")));
+                    return;
+                }
+                
+                Set<String> undos = undoProposalMap.computeIfAbsent(roomId, k -> Collections.synchronizedSet(new HashSet<>()));
+                undos.add(session.getId());
+                
+                if (undos.size() >= 2) {
+                    List<GameMove> previousMoves = stack.pop();
+                    dao.deleteMoves(roomId); // Xóa toàn bộ nước đi hiện tại ở DB
+                    for (GameMove m : previousMoves) {
+                        m.setRoom(room);
+                        dao.saveMove(m); // Phục hồi lại các nước đi cũ (kể cả các quân đã từng bị ăn)
+                    }
+                    
+                    // Lùi lại 1 lượt
+                    timer.currentTurn = timer.currentTurn.equals("black") ? "white" : "black";
+                    undoProposalMap.remove(roomId);
+                    
+                    // Lùi lại lịch sử Superko 1 bước
+                    Stack<String> bHistory = boardHistoryMap.get(roomId);
+                    if (bHistory != null && !bHistory.isEmpty()) {
+                        bHistory.pop();
+                    }
+                    
+                    // Trả về dữ liệu để client render lại bàn cờ
+                    Map<String, Object> syncData = new HashMap<>();
+                    syncData.put("moves", previousMoves);
+                    syncData.put("nextTurn", timer.currentTurn);
+                    broadcast(roomId, gson.toJson(new GameResponse("UNDO_SUCCESS", syncData)), null);
+                } else {
+                    broadcast(roomId, gson.toJson(new GameResponse("UNDO_REQUESTED", "Đối thủ muốn hoàn tác nước đi vừa rồi. Bạn đồng ý không?")), session);
+                }
+                return;
+            }
+            
+            if ("UNDO_REJECT".equals(type)) {
+                undoProposalMap.remove(roomId);
+                broadcast(roomId, gson.toJson(new GameResponse("UNDO_REJECTED", "Đối thủ không đồng ý hoàn tác nước đi.")), session);
                 return;
             }
             
@@ -431,11 +484,11 @@ public class GameWebSocket {
             String nextBoardStr = logic.getBoardString(nextBoard);
             
             // Lấy danh sách lịch sử trạng thái của phòng hiện tại
-            Set<String> history = boardHistoryMap.computeIfAbsent(roomId, k -> Collections.synchronizedSet(new HashSet<>()));
+            Stack<String> history = boardHistoryMap.computeIfAbsent(roomId, k -> new Stack<>());
             
             // Nếu lịch sử trống (nước đầu tiên hoặc server vừa restart), lưu trạng thái hiện tại vào trước
             if (history.isEmpty()) {
-                history.add(logic.getBoardString(currentBoard));
+                history.push(logic.getBoardString(currentBoard));
             }
             
             // [Superko] Kiểm tra luật Kiếp toàn cục (Positional Superko): Trạng thái không được lặp lại bất kỳ lúc nào trong quá khứ
@@ -444,8 +497,20 @@ public class GameWebSocket {
                 return;
             }
             
+            // Clone trạng thái nước đi hiện tại để hỗ trợ tính năng Hồi nước đi (Undo)
+            Stack<List<GameMove>> moveStack = moveHistoryMap.computeIfAbsent(roomId, k -> new Stack<>());
+            List<GameMove> clonedMoves = new ArrayList<>();
+            if (moves != null) {
+                for (GameMove m : moves) {
+                    GameMove clone = new GameMove();
+                    clone.setX(m.getX()); clone.setY(m.getY()); clone.setColor(m.getColor()); clone.setMoveOrder(m.getMoveOrder());
+                    clonedMoves.add(clone);
+                }
+            }
+            moveStack.push(clonedMoves);
+            
             // Nếu hợp lệ, lưu trạng thái mới vào lịch sử
-            history.add(nextBoardStr);
+            history.push(nextBoardStr);
             
             for (StoneCoords s : toRemove) {
                 // [Bước 6.21, 6.22] removeMoveAt(roomId, x, y) - Xóa quân bị ăn trong DB
@@ -530,8 +595,10 @@ public class GameWebSocket {
         confirmationMap.remove(roomId);
         // Dọn dẹp bộ nhớ lịch sử bàn cờ khi kết thúc game
         boardHistoryMap.remove(roomId);
-        // Dọn dẹp bộ nhớ đề xuất hòa
+        // Dọn dẹp bộ nhớ đề xuất hòa và hoàn tác
         drawProposalMap.remove(roomId);
+        moveHistoryMap.remove(roomId);
+        undoProposalMap.remove(roomId);
     }
     
     private void broadcast(Long roomId, String message, Session sender) {
