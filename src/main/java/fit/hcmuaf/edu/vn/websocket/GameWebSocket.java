@@ -25,6 +25,8 @@ public class GameWebSocket {
     private static Map<Long, RoomTimer> gameTimers = new ConcurrentHashMap<>();
     // Lưu trữ lịch sử tất cả các trạng thái bàn cờ để xử lý luật Kiếp nâng cao (Superko)
     private static Map<Long, Set<String>> boardHistoryMap = new ConcurrentHashMap<>();
+    // Lưu trữ danh sách các người chơi đã chấp nhận đề nghị hòa trong một phòng
+    private static Map<Long, Set<String>> drawProposalMap = new ConcurrentHashMap<>();
     private final Gson gson = new Gson();
     
     // Luồng chạy ngầm để kiểm tra hết giờ (mỗi 1 giây)
@@ -95,6 +97,8 @@ public class GameWebSocket {
         consecutivePasses.remove(roomId);
         deadStonesMap.remove(roomId);
         confirmationMap.remove(roomId);
+        // Xóa thông tin đề xuất hòa
+        drawProposalMap.remove(roomId);
     }
     
     public static class StoneCoords {
@@ -271,6 +275,38 @@ public class GameWebSocket {
                 gameTimers.remove(roomId);
                 // Xóa lịch sử bàn cờ khi có người đầu hàng
                 boardHistoryMap.remove(roomId);
+                drawProposalMap.remove(roomId);
+                return;
+            }
+            
+            // Xử lý gửi yêu cầu hòa hoặc đồng ý hòa
+            if ("DRAW_PROPOSE".equals(type)) {
+                // Thêm ID của người dùng vào danh sách đồng ý hòa
+                Set<String> draws = drawProposalMap.computeIfAbsent(roomId, k -> Collections.synchronizedSet(new HashSet<>()));
+                draws.add(session.getId());
+                
+                // Nếu cả 2 người cùng đồng ý hòa
+                if (draws.size() >= 2) {
+                    dao.finishGame(roomId, "Hòa (Hai bên thỏa thuận)");
+                    broadcast(roomId, gson.toJson(new GameResponse("GAME_OVER", "Hòa (Hai bên thỏa thuận)")), null);
+                    // Dọn dẹp tài nguyên
+                    gameTimers.remove(roomId);
+                    boardHistoryMap.remove(roomId);
+                    drawProposalMap.remove(roomId);
+                    consecutivePasses.remove(roomId);
+                    deadStonesMap.remove(roomId);
+                    confirmationMap.remove(roomId);
+                } else {
+                    // Nếu mới 1 người đề xuất, báo cho người còn lại
+                    broadcast(roomId, gson.toJson(new GameResponse("DRAW_REQUESTED", "Đối thủ đề nghị hòa ván cờ. Bạn có đồng ý không?")), session);
+                }
+                return;
+            }
+            
+            // Xử lý khi đối thủ từ chối đề nghị hòa
+            if ("DRAW_REJECT".equals(type)) {
+                drawProposalMap.remove(roomId); // Xóa đề xuất trước đó
+                broadcast(roomId, gson.toJson(new GameResponse("DRAW_REJECTED", "Đối thủ đã từ chối đề nghị hòa.")), session);
                 return;
             }
             
@@ -452,7 +488,10 @@ public class GameWebSocket {
         Map<String, Double> scores = logic.calculateFinalScore(6.5);
         
         String result;
-        if (scores.get("black") > scores.get("white")) {
+        // Tự động kiểm tra và xử lý nếu điểm số bằng nhau
+        if (scores.get("black").equals(scores.get("white"))) {
+            result = "Hòa (Điểm số bằng nhau)";
+        } else if (scores.get("black") > scores.get("white")) {
             result = "Đen thắng " + (scores.get("black") - scores.get("white"));
         } else {
             result = "Trắng thắng " + (scores.get("white") - scores.get("black"));
@@ -469,6 +508,8 @@ public class GameWebSocket {
         confirmationMap.remove(roomId);
         // Dọn dẹp bộ nhớ lịch sử bàn cờ khi kết thúc game
         boardHistoryMap.remove(roomId);
+        // Dọn dẹp bộ nhớ đề xuất hòa
+        drawProposalMap.remove(roomId);
     }
     
     private void broadcast(Long roomId, String message, Session sender) {
