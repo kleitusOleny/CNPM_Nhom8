@@ -218,7 +218,17 @@ public class GameWebSocket {
             }
             
             if (moves != null) {
-                String startTurn = (moves.size() % 2 == 0) ? "black" : "white";
+                String startTurn;
+                int handicap = room.getHandicap();
+                // [Handicap] Quân đen được đi liên tục các nước đầu tiên bằng đúng số quân chấp
+                if (handicap > 0 && moves.size() < handicap) {
+                    startTurn = "black";
+                } else if (handicap > 0) {
+                    startTurn = ((moves.size() - handicap) % 2 == 0) ? "white" : "black";
+                } else {
+                    startTurn = (moves.size() % 2 == 0) ? "black" : "white";
+                }
+                timer.currentTurn = startTurn;
                 try { session.getBasicRemote().sendText(gson.toJson(new GameResponse("SYNC_TURN", null, startTurn))); } catch (IOException e) { e.printStackTrace(); }
             }
         }
@@ -455,8 +465,18 @@ public class GameWebSocket {
             newMove.setMoveOrder(moves != null ? moves.size() + 1 : 1);
             dao.saveMove(newMove);
             
-            // [Bước 6.27] Đổi lượt (currentTurn = "white")
-            timer.currentTurn = timer.currentTurn.equals("black") ? "white" : "black";
+            // [Bước 6.27] Đổi lượt, xem xét luật chấp quân (Handicap)
+            int handicap = room.getHandicap();
+            int currentMovesCount = moves != null ? moves.size() + 1 : 1;
+            
+            // Nếu vẫn đang trong giai đoạn đặt quân chấp, quân Đen tiếp tục được đi
+            if (handicap > 0 && currentMovesCount < handicap) {
+                timer.currentTurn = "black";
+            } else if (handicap > 0 && currentMovesCount == handicap) {
+                timer.currentTurn = "white"; // Sau khi Đen đặt xong quân chấp, lượt chuyển sang Trắng
+            } else {
+                timer.currentTurn = timer.currentTurn.equals("black") ? "white" : "black";
+            }
             
             Map<String, Object> moveResponse = new HashMap<>(data);
             moveResponse.put("nextTurn", timer.currentTurn);
@@ -483,9 +503,11 @@ public class GameWebSocket {
         }
         
         logic.setBoard(finalBoard);
-        // [Bước 6.36] calculateFinalScore(6.5)
+        // [Handicap] Tự động điều chỉnh Komi: Nếu có chấp quân thì Komi chỉ còn 0.5 để tránh hòa
+        double komi = room.getHandicap() > 0 ? 0.5 : 6.5;
+        // [Bước 6.36] calculateFinalScore(komi)
         // [Bước 6.37] Trả về Map<String, Double> (Điểm số)
-        Map<String, Double> scores = logic.calculateFinalScore(6.5);
+        Map<String, Double> scores = logic.calculateFinalScore(komi);
         
         String result;
         // Tự động kiểm tra và xử lý nếu điểm số bằng nhau
