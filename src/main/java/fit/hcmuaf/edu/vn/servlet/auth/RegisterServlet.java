@@ -58,7 +58,7 @@ public class RegisterServlet extends HttpServlet {
             userDAO.save(newUser);
             resp.sendRedirect(req.getContextPath() + "/login?registered=true");
         } catch (Exception e) {
-            req.setAttribute("errorMsg", "Lỗi hệ thống: " + e.getMessage());
+            req.setAttribute("errorMsg", "LỖI HỆ THỐNG: " + e.getMessage());
             req.getRequestDispatcher("/views/auth/register.jsp").forward(req, resp);
         }
     }
