@@ -12,16 +12,16 @@ import java.io.IOException;
 public class LoginServlet extends HttpServlet {
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+    protected void doGet(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
         HttpSession session = req.getSession(false);
         if (session != null && session.getAttribute("user") != null) {
-            resp.sendRedirect(req.getContextPath() + "/lobby");
+            res.sendRedirect(req.getContextPath() + "/lobby");
             return;
         }
-        req.getRequestDispatcher("/views/auth/login.jsp").forward(req, resp);
+        req.getRequestDispatcher("/views/auth/login.jsp").forward(req, res);
     }
-    
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         String username = req.getParameter("identifier");

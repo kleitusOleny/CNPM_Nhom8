@@ -10,13 +10,13 @@ import java.io.IOException;
 
 public class RegisterServlet extends HttpServlet {
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+    protected void doGet(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
-        req.getRequestDispatcher("/views/auth/register.jsp").forward(req, resp);
+        req.getRequestDispatcher("/views/auth/register.jsp").forward(req, res);
     }
     
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+    protected void doPost(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
         req.setCharacterEncoding("UTF-8");
         
@@ -30,7 +30,7 @@ public class RegisterServlet extends HttpServlet {
         // 2. Kiểm tra logic cơ bản
         if (!password.equals(confirmPassword)) {
             req.setAttribute("errorMsg", "Mật khẩu xác nhận không khớp");
-            req.getRequestDispatcher("/views/auth/register.jsp").forward(req, resp);
+            req.getRequestDispatcher("/views/auth/register.jsp").forward(req, res);
             return;
         }
         
@@ -39,7 +39,7 @@ public class RegisterServlet extends HttpServlet {
         // 3. Kiểm tra xem username đã tồn tại chưa
         if (userDAO.findByUsername(username) != null) {
             req.setAttribute("errorMsg", "Tên đăng nhập đã tồn tại");
-            req.getRequestDispatcher("/views/auth/register.jsp").forward(req, resp);
+            req.getRequestDispatcher("/views/auth/register.jsp").forward(req, res);
             return;
         }
         
@@ -56,10 +56,10 @@ public class RegisterServlet extends HttpServlet {
         
         try {
             userDAO.save(newUser);
-            resp.sendRedirect(req.getContextPath() + "/login?registered=true");
+            res.sendRedirect(req.getContextPath() + "/login?registered=true");
         } catch (Exception e) {
             req.setAttribute("errorMsg", "LỖI HỆ THỐNG: " + e.getMessage());
-            req.getRequestDispatcher("/views/auth/register.jsp").forward(req, resp);
+            req.getRequestDispatcher("/views/auth/register.jsp").forward(req, res);
         }
     }
 }
