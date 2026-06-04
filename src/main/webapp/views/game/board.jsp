@@ -225,13 +225,19 @@
             <div class="bg-white p-4 rounded-xl border-t-4 border-slate-300 shadow-sm">
                 <div class="font-bold truncate text-slate-700">${opponent != null ? opponent.fullName : 'Chờ đối thủ...'}</div>
                 <div id="timer-opponent" class="text-3xl font-black text-red-500 mt-2">00:00</div>
-                <div id="periods-opponent" class="text-xs font-bold bg-red-50 text-red-600 inline-block px-2 py-1 rounded mt-1">BYO: 3</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div id="periods-opponent" class="text-xs font-bold bg-red-50 text-red-600 inline-block px-2 py-1 rounded">BYO: 3</div>
+                    <div class="text-xs font-medium text-slate-500">Tù binh: <span id="captures-opponent" class="font-bold text-slate-800">0</span></div>
+                </div>
             </div>
 
             <div class="mt-auto bg-white p-4 rounded-xl border-t-4 border-green-500 shadow-md">
                 <div class="font-bold truncate text-slate-800">${sessionScope.displayName} (Bạn)</div>
                 <div id="timer-me" class="text-3xl font-black text-green-600 mt-2">00:00</div>
-                <div id="periods-me" class="text-xs font-bold bg-green-50 text-green-700 inline-block px-2 py-1 rounded mt-1">BYO: 3</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div id="periods-me" class="text-xs font-bold bg-green-50 text-green-700 inline-block px-2 py-1 rounded">BYO: 3</div>
+                    <div class="text-xs font-medium text-slate-500">Tù binh: <span id="captures-me" class="font-bold text-slate-800">0</span></div>
+                </div>
             </div>
         </aside>
     </main>
@@ -259,7 +265,9 @@
     let timeState = {
         blackMain: 1800000, blackPeriods: 3,
         whiteMain: 1800000, whitePeriods: 3,
-        periodTime: 30000
+        periodTime: 30000,
+        blackCaptures: 0,
+        whiteCaptures: 0
     };
     let currentByoYomi = { black: 30000, white: 30000 };
 
@@ -432,6 +440,9 @@
 
         document.getElementById('timer-opponent').innerText = formatTime(isIBlack ? whiteDisp : blackDisp);
         document.getElementById('periods-opponent').innerText = "BYO: " + (isIBlack ? Math.max(0, timeState.whitePeriods) : Math.max(0, timeState.blackPeriods));
+        
+        document.getElementById('captures-me').innerText = isIBlack ? (timeState.blackCaptures || 0) : (timeState.whiteCaptures || 0);
+        document.getElementById('captures-opponent').innerText = isIBlack ? (timeState.whiteCaptures || 0) : (timeState.blackCaptures || 0);
     }
 
     function addStoneToUI(x, y, color) {

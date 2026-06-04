@@ -149,6 +149,8 @@ public class GameWebSocket {
         public long lastTurnStartTime;
         public String currentTurn;
         public boolean isGameStarted; // Thêm trạng thái bắt đầu game
+        public int blackCaptures = 0; // Đen ăn được bao nhiêu quân trắng
+        public int whiteCaptures = 0; // Trắng ăn được bao nhiêu quân đen
         
         public RoomTimer(String timeControl) {
             try {
@@ -180,6 +182,8 @@ public class GameWebSocket {
         timeData.put("whiteMain", timer.white.mainTimeMillis);
         timeData.put("whitePeriods", timer.white.periods);
         timeData.put("periodTime", timer.black.periodTimeMillis);
+        timeData.put("blackCaptures", timer.blackCaptures);
+        timeData.put("whiteCaptures", timer.whiteCaptures);
         return timeData;
     }
     
@@ -532,6 +536,11 @@ public class GameWebSocket {
             }
             
             if (!toRemove.isEmpty()) {
+                if (color.equals("black")) {
+                    timer.blackCaptures += toRemove.size();
+                } else {
+                    timer.whiteCaptures += toRemove.size();
+                }
                 broadcast(roomId, gson.toJson(new GameResponse("REMOVE", toRemove)), null);
             }
             
