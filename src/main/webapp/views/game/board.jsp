@@ -230,6 +230,13 @@
                     <div class="text-xs font-medium text-slate-500">Tù binh: <span id="captures-opponent" class="font-bold text-slate-800">0</span></div>
                 </div>
             </div>
+            
+            <div class="flex-1 bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden my-1">
+                <div class="text-sm font-bold text-slate-700 mb-2 border-b pb-1">Lịch sử nước đi</div>
+                <div id="move-history-container" class="flex-1 overflow-y-auto text-sm space-y-1 pr-1" style="max-height: 250px;">
+                    <!-- Lịch sử nước đi sẽ hiển thị ở đây -->
+                </div>
+            </div>
 
             <div class="mt-auto bg-white p-4 rounded-xl border-t-4 border-green-500 shadow-md">
                 <div class="font-bold truncate text-slate-800">${sessionScope.displayName} (Bạn)</div>
@@ -275,6 +282,7 @@
     let currentTurn = "black";
     let isSelectingDead = false;
     let isGameStarted = false; // Cờ kiểm soát trạng thái phòng
+    let moveCount = 0; // Đếm số nước đi để hiển thị lịch sử
 
     const config = {
         id: "${currentGame.id}",
@@ -360,14 +368,70 @@
             });
         }
         else if (data.type === "PASS") {
-
+            const passColor = currentTurn === 'black' ? 'white' : 'black'; // currentTurn was already flipped before PASS broadcast
+            appendMoveHistory(-1, -1, passColor);
+        }
+        else if (data.type === "UNDO_SUCCESS") {
+            // Khôi phục lại bàn cờ và lịch sử
+            document.querySelectorAll('.gt-stone').forEach(s => s.remove());
+            document.getElementById('move-history-container').innerHTML = '';
+            moveCount = 0;
+            
+            const moves = data.data.moves;
+            if (moves) {
+                moves.forEach(m => {
+                    addStoneToUI(m.x, m.y, m.color);
+                    appendMoveHistory(m.x, m.y, m.color);
+                });
+            }
+            
+            currentTurn = data.data.nextTurn;
+            updateTurnUI();
+            alert("Nước đi đã được hoàn tác.");
         }
         else {
             if (data.isHistory || data.color !== config.role) {
                 addStoneToUI(data.x, data.y, data.color);
+                appendMoveHistory(data.x, data.y, data.color);
             }
         }
     };
+
+    function appendMoveHistory(x, y, color) {
+        moveCount++;
+        const container = document.getElementById('move-history-container');
+        const entry = document.createElement('div');
+        entry.className = "flex justify-between items-center bg-slate-50 p-1.5 rounded";
+        
+        const moveNumber = document.createElement('span');
+        moveNumber.className = "text-slate-400 font-mono text-xs w-6";
+        moveNumber.innerText = moveCount + ".";
+        
+        const playerBadge = document.createElement('span');
+        playerBadge.className = "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase " + (color === 'black' ? "bg-black text-white" : "bg-white text-black border border-slate-300");
+        playerBadge.innerText = color === 'black' ? "Đen" : "Trắng";
+        
+        const coord = document.createElement('span');
+        coord.className = "text-slate-700 font-medium font-mono text-xs";
+        
+        if (x === -1 && y === -1) {
+            coord.innerText = "Bỏ lượt";
+            coord.className += " italic text-slate-500";
+        } else {
+            // Chuyển đổi tọa độ (x, y) sang format như A1, C3...
+            const letters = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
+            const l = letters.charAt(x);
+            const n = config.size - y;
+            coord.innerText = `\${l}\${n}`;
+        }
+        
+        entry.appendChild(moveNumber);
+        entry.appendChild(playerBadge);
+        entry.appendChild(coord);
+        
+        container.appendChild(entry);
+        container.scrollTop = container.scrollHeight;
+    }
 
     function startClocks() {
         if (!isGameStarted) return;
@@ -512,6 +576,7 @@
             currentTurn = (config.role === 'black') ? 'white' : 'black';
             updateTurnUI();
             ws.send(JSON.stringify({ type: "MOVE", x: x, y: y, color: config.role }));
+            appendMoveHistory(x, y, config.role);
         }
     });
 
@@ -524,6 +589,7 @@
         }
         if (currentTurn === config.role) {
             ws.send(JSON.stringify({ type: "PASS", color: config.role }));
+            appendMoveHistory(-1, -1, config.role);
         }
     });
 
