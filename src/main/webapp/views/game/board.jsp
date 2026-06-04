@@ -267,6 +267,17 @@
         </div>
     </div>
     
+    <!-- Modal Thông báo chung (Custom Alert) -->
+    <div id="alert-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 p-4 transition-opacity">
+        <div class="bg-white rounded-xl w-full max-w-sm p-6 text-center shadow-2xl transform transition-all">
+            <h3 id="alert-title" class="text-xl font-bold text-slate-800 mb-2">Thông báo</h3>
+            <p id="alert-message" class="text-slate-500 mb-6 text-sm"></p>
+            <div id="alert-buttons" class="flex gap-3 justify-center">
+                <button onclick="closeAlert()" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors w-full">OK</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Modal Xác nhận đầu hàng -->
     <div id="resign-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 p-4">
         <div class="bg-white rounded-xl w-full max-w-sm p-6 text-center shadow-2xl">
@@ -337,15 +348,16 @@
             updateTurnUI();
         }
         else if (data.type === "INVALID") {
-            alert(data.data);
+            showAlert("Thông báo", data.data);
         }
         else if (data.type === "GAME_OVER") {
-            alert("Trận đấu kết thúc: " + data.data);
-            window.location.href = "${pageContext.request.contextPath}/lobby";
+            showAlert("Trận đấu kết thúc", data.data, `
+                <button onclick="window.location.href='${pageContext.request.contextPath}/lobby'" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors w-full">Về Sảnh Chờ</button>
+            `);
         }
         else if (data.type === "START_DEAD_SELECTION") {
             isSelectingDead = true;
-            alert("Hai bên đã bỏ lượt. Hãy click chọn các quân chết rồi nhấn Xác nhận điểm.");
+            showAlert("Giai đoạn đếm điểm", "Hai bên đã bỏ lượt. Hãy click chọn các quân chết rồi nhấn Xác nhận điểm.");
             document.getElementById('gt-turn-text').innerText = "Giai đoạn xác nhận quân chết...";
             const btnPass = document.getElementById('btn-pass');
             btnPass.innerText = "Xác nhận điểm";
@@ -400,12 +412,19 @@
             
             currentTurn = data.data.nextTurn;
             updateTurnUI();
-            alert("Nước đi đã được hoàn tác.");
+            showAlert("Hoàn tác", "Nước đi đã được hoàn tác.");
         }
-        else {
-            if (data.isHistory || data.color !== config.role) {
-                addStoneToUI(data.x, data.y, data.color, moveCount + 1);
-                appendMoveHistory(data.x, data.y, data.color);
+        else if (data.type === "MOVE" || (data.x !== undefined && data.y !== undefined)) {
+            // Xử lý nước đi được server xác nhận (hoặc lịch sử)
+            addStoneToUI(data.x, data.y, data.color, moveCount + 1);
+            appendMoveHistory(data.x, data.y, data.color);
+            
+            if (data.nextTurn) {
+                currentTurn = data.nextTurn;
+                updateTurnUI();
+            } else if (!data.isHistory) {
+                currentTurn = (data.color === 'black') ? 'white' : 'black';
+                updateTurnUI();
             }
         }
     };
@@ -530,19 +549,13 @@
         const stone = document.createElement('div');
         const sizePercentage = (config.size === 19) ? 5.2 : 7.5;
 
-        stone.className = "gt-stone shadow-lg flex items-center justify-center font-bold";
+        stone.className = "gt-stone shadow-lg";
         stone.setAttribute('data-pos', `\${x}-\${y}`);
         stone.style.width = sizePercentage + "%";
         stone.style.height = sizePercentage + "%";
         stone.style.left = (x * config.spacing) + "%";
         stone.style.top = (y * config.spacing) + "%";
         stone.style.background = (color === 'black') ? "#111111" : "#ffffff";
-        stone.style.color = (color === 'black') ? "#ffffff" : "#111111";
-        stone.style.fontSize = (config.size === 19) ? "10px" : "14px";
-        
-        if (moveNum) {
-            stone.innerText = moveNum;
-        }
 
         if (color === 'white') {
             stone.style.border = "1px solid #d1d5db";
@@ -583,7 +596,7 @@
 
     document.getElementById('gt-interaction-layer').addEventListener('click', (e) => {
         if (!isGameStarted) {
-            alert("Vui lòng chờ đối thủ vào phòng để bắt đầu!");
+            showAlert("Chưa bắt đầu", "Vui lòng chờ đối thủ vào phòng để bắt đầu!");
             return;
         }
 
@@ -603,13 +616,15 @@
         const x = Math.round(((e.clientX - r.left) / r.width) * (config.size - 1));
         const y = Math.round(((e.clientY - r.top) / r.height) * (config.size - 1));
 
-        if (addStoneToUI(x, y, config.role, moveCount + 1)) {
-            currentTurn = (config.role === 'black') ? 'white' : 'black';
-            updateTurnUI();
-            ws.send(JSON.stringify({ type: "MOVE", x: x, y: y, color: config.role }));
-            appendMoveHistory(x, y, config.role);
-            if (hoverStone) hoverStone.style.display = 'none'; // Ẩn ngay lập tức sau khi đánh
+        // Nếu ô đã có quân cờ thì chặn ngay tại local
+        if (document.querySelector(`[data-pos="\${x}-\${y}"]`)) {
+            return;
         }
+
+        // Gửi yêu cầu lên server. KHÔNG update UI ngay lập tức để tránh out-of-sync
+        // UI sẽ chỉ cập nhật khi server gửi về message type="MOVE"
+        ws.send(JSON.stringify({ type: "MOVE", x: x, y: y, color: config.role }));
+        if (hoverStone) hoverStone.style.display = 'none';
     });
 
     document.getElementById('gt-interaction-layer').addEventListener('mousemove', (e) => {
@@ -707,6 +722,27 @@
         hoverStone.style.zIndex = '5';
         document.getElementById('gt-interaction-layer').appendChild(hoverStone);
     };
+
+    // Hàm hiển thị Custom Alert thay cho alert() mặc định
+    function showAlert(title, message, buttonsHTML = null) {
+        document.getElementById('alert-title').innerText = title || "Thông báo";
+        document.getElementById('alert-message').innerText = message;
+        if (buttonsHTML) {
+            document.getElementById('alert-buttons').innerHTML = buttonsHTML;
+        } else {
+            document.getElementById('alert-buttons').innerHTML = `<button onclick="closeAlert()" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors w-full">OK</button>`;
+        }
+        
+        const modal = document.getElementById('alert-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeAlert() {
+        const modal = document.getElementById('alert-modal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
 </script>
 </body>
 </html>
