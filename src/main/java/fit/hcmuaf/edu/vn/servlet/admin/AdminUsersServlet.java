@@ -13,7 +13,7 @@ import java.util.Map;
 /**
  * Chức năng quản lý người dùng
  */
-@WebServlet("/admin/users")
+//@WebServlet("/admin/users")
 public class AdminUsersServlet extends HttpServlet {
     private final UserService userService = new UserService();
     private static final int PAGE_SIZE = 10;
