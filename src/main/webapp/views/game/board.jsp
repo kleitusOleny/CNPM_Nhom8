@@ -266,6 +266,18 @@
             <button onclick="location.href='${pageContext.request.contextPath}/lobby'" class="w-full py-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors">QUAY VỀ SẢNH</button>
         </div>
     </div>
+    
+    <!-- Modal Xác nhận đầu hàng -->
+    <div id="resign-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 p-4">
+        <div class="bg-white rounded-xl w-full max-w-sm p-6 text-center shadow-2xl">
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Đầu hàng?</h3>
+            <p class="text-slate-500 mb-6 text-sm">Bạn có chắc chắn muốn nhận thua ván cờ này không? Hành động này không thể hoàn tác.</p>
+            <div class="flex gap-3">
+                <button id="btn-cancel-resign" class="flex-1 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors">Hủy bỏ</button>
+                <button id="btn-confirm-resign" class="flex-1 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">Xác nhận</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -595,9 +607,25 @@
 
     document.getElementById('btn-resign').addEventListener('click', () => {
         if (!isGameStarted) return;
-        if (confirm("Bạn có chắc chắn muốn đầu hàng?")) {
-            ws.send(JSON.stringify({ type: "RESIGN", color: config.role }));
-        }
+        
+        // Hiển thị modal custom thay cho confirm()
+        const modal = document.getElementById('resign-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    });
+
+    document.getElementById('btn-cancel-resign').addEventListener('click', () => {
+        const modal = document.getElementById('resign-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    });
+
+    document.getElementById('btn-confirm-resign').addEventListener('click', () => {
+        const modal = document.getElementById('resign-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        
+        ws.send(JSON.stringify({ type: "RESIGN", color: config.role }));
     });
 
     window.onload = () => {
