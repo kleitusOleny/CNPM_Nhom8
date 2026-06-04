@@ -395,6 +395,13 @@ public class GameWebSocket {
             if ("TOGGLE_DEAD".equals(type)) {
                 int x = ((Double) data.get("x")).intValue();
                 int y = ((Double) data.get("y")).intValue();
+                int size = room.getBoardSize();
+                
+                // Validate: Kiểm tra tọa độ chọn quân chết có nằm ngoài phạm vi bàn cờ không
+                if (x < 0 || x >= size || y < 0 || y >= size) {
+                    session.getBasicRemote().sendText(gson.toJson(new GameResponse("INVALID", "Tọa độ vượt quá phạm vi bàn cờ!")));
+                    return;
+                }
                 String posKey = x + "-" + y;
                 
                 Set<String> deadStones = deadStonesMap.computeIfAbsent(roomId, k -> Collections.synchronizedSet(new HashSet<>()));
@@ -423,6 +430,12 @@ public class GameWebSocket {
             int y = ((Double) data.get("y")).intValue();
             String color = (String) data.get("color");
             int size = room.getBoardSize();
+            
+            // Validate: Kiểm tra tọa độ đánh cờ có nằm ngoài phạm vi bàn cờ không
+            if (x < 0 || x >= size || y < 0 || y >= size) {
+                session.getBasicRemote().sendText(gson.toJson(new GameResponse("INVALID", "Tọa độ vượt quá phạm vi bàn cờ!")));
+                return;
+            }
             
             int[][] currentBoard = new int[size][size];
             int[][] previousBoard = new int[size][size];
