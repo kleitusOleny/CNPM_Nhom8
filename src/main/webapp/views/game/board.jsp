@@ -261,6 +261,7 @@
         whiteMain: 1800000, whitePeriods: 3,
         periodTime: 30000
     };
+    let currentByoYomi = { black: 30000, white: 30000 };
 
     let timerInterval = null;
     let currentTurn = "black";
@@ -366,14 +367,46 @@
         if (timerInterval) {
             clearInterval(timerInterval);
         }
+        
+        currentByoYomi.black = timeState.periodTime;
+        currentByoYomi.white = timeState.periodTime;
+
         timerInterval = setInterval(() => {
             if (currentTurn === 'black') {
                 if (timeState.blackMain > 0) {
                     timeState.blackMain -= 1000;
+                    if (timeState.blackMain <= 0) {
+                         currentByoYomi.black += timeState.blackMain;
+                         timeState.blackMain = 0;
+                    }
+                } else {
+                    currentByoYomi.black -= 1000;
+                    if (currentByoYomi.black <= 0) {
+                        timeState.blackPeriods--;
+                        if (timeState.blackPeriods >= 0) {
+                            currentByoYomi.black = timeState.periodTime;
+                        } else {
+                            currentByoYomi.black = 0;
+                        }
+                    }
                 }
             } else {
                 if (timeState.whiteMain > 0) {
                     timeState.whiteMain -= 1000;
+                    if (timeState.whiteMain <= 0) {
+                         currentByoYomi.white += timeState.whiteMain;
+                         timeState.whiteMain = 0;
+                    }
+                } else {
+                    currentByoYomi.white -= 1000;
+                    if (currentByoYomi.white <= 0) {
+                        timeState.whitePeriods--;
+                        if (timeState.whitePeriods >= 0) {
+                            currentByoYomi.white = timeState.periodTime;
+                        } else {
+                            currentByoYomi.white = 0;
+                        }
+                    }
                 }
             }
             renderTimers();
@@ -384,18 +417,21 @@
         const isIBlack = (config.role === 'black');
 
         const formatTime = (ms) => {
-            if (ms <= 0) return "00:30";
+            if (ms < 0) ms = 0;
             let seconds = Math.floor(ms / 1000);
             let m = Math.floor(seconds / 60).toString().padStart(2, '0');
             let s = (seconds % 60).toString().padStart(2, '0');
             return `\${m}:\${s}`;
         };
 
-        document.getElementById('timer-me').innerText = formatTime(isIBlack ? timeState.blackMain : timeState.whiteMain);
-        document.getElementById('periods-me').innerText = "BYO: " + (isIBlack ? timeState.blackPeriods : timeState.whitePeriods);
+        const blackDisp = timeState.blackMain > 0 ? timeState.blackMain : currentByoYomi.black;
+        const whiteDisp = timeState.whiteMain > 0 ? timeState.whiteMain : currentByoYomi.white;
 
-        document.getElementById('timer-opponent').innerText = formatTime(isIBlack ? timeState.whiteMain : timeState.blackMain);
-        document.getElementById('periods-opponent').innerText = "BYO: " + (isIBlack ? timeState.whitePeriods : timeState.blackPeriods);
+        document.getElementById('timer-me').innerText = formatTime(isIBlack ? blackDisp : whiteDisp);
+        document.getElementById('periods-me').innerText = "BYO: " + (isIBlack ? Math.max(0, timeState.blackPeriods) : Math.max(0, timeState.whitePeriods));
+
+        document.getElementById('timer-opponent').innerText = formatTime(isIBlack ? whiteDisp : blackDisp);
+        document.getElementById('periods-opponent').innerText = "BYO: " + (isIBlack ? Math.max(0, timeState.whitePeriods) : Math.max(0, timeState.blackPeriods));
     }
 
     function addStoneToUI(x, y, color) {

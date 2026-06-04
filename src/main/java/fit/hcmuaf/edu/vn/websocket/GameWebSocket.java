@@ -179,6 +179,7 @@ public class GameWebSocket {
         timeData.put("blackPeriods", timer.black.periods);
         timeData.put("whiteMain", timer.white.mainTimeMillis);
         timeData.put("whitePeriods", timer.white.periods);
+        timeData.put("periodTime", timer.black.periodTimeMillis);
         return timeData;
     }
     
