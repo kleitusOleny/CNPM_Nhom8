@@ -295,6 +295,7 @@
     let isSelectingDead = false;
     let isGameStarted = false; // Cờ kiểm soát trạng thái phòng
     let moveCount = 0; // Đếm số nước đi để hiển thị lịch sử
+    let hoverStone = null;
 
     const config = {
         id: "${currentGame.id}",
@@ -589,7 +590,37 @@
             updateTurnUI();
             ws.send(JSON.stringify({ type: "MOVE", x: x, y: y, color: config.role }));
             appendMoveHistory(x, y, config.role);
+            if (hoverStone) hoverStone.style.display = 'none'; // Ẩn ngay lập tức sau khi đánh
         }
+    });
+
+    document.getElementById('gt-interaction-layer').addEventListener('mousemove', (e) => {
+        if (!isGameStarted || currentTurn !== config.role || isSelectingDead) {
+            if (hoverStone) hoverStone.style.display = 'none';
+            return;
+        }
+        
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = Math.round(((e.clientX - r.left) / r.width) * (config.size - 1));
+        const y = Math.round(((e.clientY - r.top) / r.height) * (config.size - 1));
+        
+        if (x >= 0 && x < config.size && y >= 0 && y < config.size) {
+            if (document.querySelector(`[data-pos="\${x}-\${y}"]`)) {
+                hoverStone.style.display = 'none';
+            } else {
+                hoverStone.style.display = 'block';
+                hoverStone.style.left = (x * config.spacing) + "%";
+                hoverStone.style.top = (y * config.spacing) + "%";
+                hoverStone.style.background = (config.role === 'black') ? "rgba(17, 17, 17, 0.5)" : "rgba(255, 255, 255, 0.5)";
+                if (config.role === 'white') hoverStone.style.border = "1px solid rgba(209, 213, 219, 0.5)";
+            }
+        } else {
+            hoverStone.style.display = 'none';
+        }
+    });
+
+    document.getElementById('gt-interaction-layer').addEventListener('mouseleave', () => {
+        if (hoverStone) hoverStone.style.display = 'none';
     });
 
     document.getElementById('btn-pass').addEventListener('click', () => {
@@ -643,6 +674,20 @@
             vLine.style.left = position + "%";
             gridLayer.appendChild(vLine);
         }
+        
+        // Khởi tạo hover stone
+        hoverStone = document.createElement('div');
+        hoverStone.id = 'gt-hover-stone';
+        const sizePercentage = (config.size === 19) ? 5.2 : 7.5;
+        hoverStone.style.width = sizePercentage + "%";
+        hoverStone.style.height = sizePercentage + "%";
+        hoverStone.style.display = 'none';
+        hoverStone.style.position = 'absolute';
+        hoverStone.style.borderRadius = '50%';
+        hoverStone.style.transform = 'translate(-50%, -50%)';
+        hoverStone.style.pointerEvents = 'none';
+        hoverStone.style.zIndex = '5';
+        document.getElementById('gt-interaction-layer').appendChild(hoverStone);
     };
 </script>
 </body>
