@@ -222,7 +222,7 @@
             <c:set var="isBlack" value="${sessionScope.user eq currentGame.blackPlayer.username}" />
             <c:set var="opponent" value="${isBlack ? currentGame.whitePlayer : currentGame.blackPlayer}" />
 
-            <div class="bg-white p-4 rounded-xl border-t-4 border-slate-300 shadow-sm">
+            <div id="panel-opponent" class="bg-white p-4 rounded-xl border-t-4 border-slate-300 shadow-sm transition-all duration-300">
                 <div class="font-bold truncate text-slate-700">${opponent != null ? opponent.fullName : 'Chờ đối thủ...'}</div>
                 <div id="timer-opponent" class="text-3xl font-black text-red-500 mt-2">00:00</div>
                 <div class="flex justify-between items-end mt-1">
@@ -238,7 +238,7 @@
                 </div>
             </div>
 
-            <div class="mt-auto bg-white p-4 rounded-xl border-t-4 border-green-500 shadow-md">
+            <div id="panel-me" class="mt-auto bg-white p-4 rounded-xl border-t-4 border-green-500 shadow-md transition-all duration-300">
                 <div class="font-bold truncate text-slate-800">${sessionScope.displayName} (Bạn)</div>
                 <div id="timer-me" class="text-3xl font-black text-green-600 mt-2">00:00</div>
                 <div class="flex justify-between items-end mt-1">
@@ -393,7 +393,7 @@
             const moves = data.data.moves;
             if (moves) {
                 moves.forEach(m => {
-                    addStoneToUI(m.x, m.y, m.color);
+                    addStoneToUI(m.x, m.y, m.color, moveCount + 1);
                     appendMoveHistory(m.x, m.y, m.color);
                 });
             }
@@ -404,7 +404,7 @@
         }
         else {
             if (data.isHistory || data.color !== config.role) {
-                addStoneToUI(data.x, data.y, data.color);
+                addStoneToUI(data.x, data.y, data.color, moveCount + 1);
                 appendMoveHistory(data.x, data.y, data.color);
             }
         }
@@ -522,7 +522,7 @@
         document.getElementById('captures-opponent').innerText = isIBlack ? (timeState.whiteCaptures || 0) : (timeState.blackCaptures || 0);
     }
 
-    function addStoneToUI(x, y, color) {
+    function addStoneToUI(x, y, color, moveNum) {
         if (document.querySelector(`[data-pos="\${x}-\${y}"]`)) {
             return false;
         }
@@ -530,13 +530,19 @@
         const stone = document.createElement('div');
         const sizePercentage = (config.size === 19) ? 5.2 : 7.5;
 
-        stone.className = "gt-stone shadow-lg";
+        stone.className = "gt-stone shadow-lg flex items-center justify-center font-bold";
         stone.setAttribute('data-pos', `\${x}-\${y}`);
         stone.style.width = sizePercentage + "%";
         stone.style.height = sizePercentage + "%";
         stone.style.left = (x * config.spacing) + "%";
         stone.style.top = (y * config.spacing) + "%";
         stone.style.background = (color === 'black') ? "#111111" : "#ffffff";
+        stone.style.color = (color === 'black') ? "#ffffff" : "#111111";
+        stone.style.fontSize = (config.size === 19) ? "10px" : "14px";
+        
+        if (moveNum) {
+            stone.innerText = moveNum;
+        }
 
         if (color === 'white') {
             stone.style.border = "1px solid #d1d5db";
@@ -558,9 +564,21 @@
         const textElement = document.getElementById('gt-turn-text');
         const dotElement = document.getElementById('gt-turn-dot');
 
-        textElement.innerText = isMyTurn ? `Lượt của bạn (\${config.role === 'black' ? 'Đen' : 'Trắng'})` : "Đang chờ đối thủ...";
+        textElement.innerText = isMyTurn ? `Lượt của bạn (\${config.role === 'black' ? 'Đen' : 'Trắng'}) - Nước thứ \${moveCount + 1}` : `Đang chờ đối thủ... - Nước thứ \${moveCount + 1}`;
         dotElement.className = "w-2.5 h-2.5 rounded-full " + (isMyTurn ? "bg-green-500 animate-pulse" : "bg-slate-300");
         document.getElementById('gt-interaction-layer').style.cursor = isMyTurn ? "crosshair" : "not-allowed";
+        
+        // Highlight panel
+        const panelMe = document.getElementById('panel-me');
+        const panelOpponent = document.getElementById('panel-opponent');
+        
+        if (isMyTurn) {
+            panelMe.classList.add('ring-4', 'ring-green-300', 'shadow-lg');
+            panelOpponent.classList.remove('ring-4', 'ring-slate-300', 'shadow-lg');
+        } else {
+            panelOpponent.classList.add('ring-4', 'ring-slate-300', 'shadow-lg');
+            panelMe.classList.remove('ring-4', 'ring-green-300', 'shadow-lg');
+        }
     }
 
     document.getElementById('gt-interaction-layer').addEventListener('click', (e) => {
@@ -585,7 +603,7 @@
         const x = Math.round(((e.clientX - r.left) / r.width) * (config.size - 1));
         const y = Math.round(((e.clientY - r.top) / r.height) * (config.size - 1));
 
-        if (addStoneToUI(x, y, config.role)) {
+        if (addStoneToUI(x, y, config.role, moveCount + 1)) {
             currentTurn = (config.role === 'black') ? 'white' : 'black';
             updateTurnUI();
             ws.send(JSON.stringify({ type: "MOVE", x: x, y: y, color: config.role }));
