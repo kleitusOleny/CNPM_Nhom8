@@ -213,6 +213,7 @@
             <div class="w-full max-w-[650px] flex justify-between items-center mt-6">
                 <div class="flex gap-3">
                     <button id="btn-resign" class="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm">Đầu hàng</button>
+                    <button id="btn-undo" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm">Hồi cờ</button>
                     <button id="btn-pass" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">Bỏ lượt</button>
                 </div>
             </div>
@@ -304,6 +305,7 @@
     let timerInterval = null;
     let currentTurn = "black";
     let isSelectingDead = false;
+    let isUndoRequested = false;
     let isGameStarted = ('${currentGame.status}' === 'PLAYING'); // Cờ kiểm soát trạng thái phòng
     let moveCount = 0; // Đếm số nước đi để hiển thị lịch sử
     let hoverStone = null;
@@ -399,6 +401,7 @@
             appendMoveHistory(-1, -1, passColor);
         }
         else if (data.type === "UNDO_SUCCESS") {
+            isUndoRequested = false;
             // Khôi phục lại bàn cờ và lịch sử
             document.querySelectorAll('.gt-stone').forEach(s => s.remove());
             document.getElementById('move-history-container').innerHTML = '';
@@ -415,6 +418,25 @@
             currentTurn = data.data.nextTurn;
             updateTurnUI();
             showAlert("Hoàn tác", "Nước đi đã được hoàn tác.");
+        }
+        else if (data.type === "UNDO_REQUESTED") {
+            isUndoRequested = true;
+            showAlert("Yêu cầu hồi cờ", data.data, `
+                <button id="btn-reject-undo" class="flex-1 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors">Từ chối</button>
+                <button id="btn-accept-undo" class="flex-1 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">Đồng ý</button>
+            `);
+            document.getElementById('btn-reject-undo').onclick = () => {
+                ws.send(JSON.stringify({ type: "UNDO_REJECT", color: config.role }));
+                closeAlert();
+            };
+            document.getElementById('btn-accept-undo').onclick = () => {
+                ws.send(JSON.stringify({ type: "UNDO_PROPOSE", color: config.role }));
+                closeAlert();
+            };
+        }
+        else if (data.type === "UNDO_REJECTED") {
+            isUndoRequested = false;
+            showAlert("Từ chối hồi cờ", data.data);
         }
         else if (data.type === "MOVE" || (data.x !== undefined && data.y !== undefined)) {
             // Xử lý nước đi được server xác nhận (hoặc lịch sử)
@@ -602,6 +624,11 @@
             return;
         }
 
+        if (isUndoRequested) {
+            showAlert("Đang chờ xác nhận", "Trận đấu đang tạm dừng để chờ phản hồi hồi cờ.");
+            return;
+        }
+
         if (isSelectingDead) {
             const r = e.currentTarget.getBoundingClientRect();
             const x = Math.round(((e.clientX - r.left) / r.width) * (config.size - 1));
@@ -630,7 +657,7 @@
     });
 
     document.getElementById('gt-interaction-layer').addEventListener('mousemove', (e) => {
-        if (!isGameStarted || currentTurn !== config.role || isSelectingDead) {
+        if (!isGameStarted || currentTurn !== config.role || isSelectingDead || isUndoRequested) {
             if (hoverStone) hoverStone.style.display = 'none';
             return;
         }
@@ -659,7 +686,7 @@
     });
 
     document.getElementById('btn-pass').addEventListener('click', () => {
-        if (!isGameStarted) return;
+        if (!isGameStarted || isUndoRequested) return;
 
         if (isSelectingDead) {
             ws.send(JSON.stringify({ type: "CONFIRM_SCORE" }));
@@ -669,6 +696,14 @@
             ws.send(JSON.stringify({ type: "PASS", color: config.role }));
             appendMoveHistory(-1, -1, config.role);
         }
+    });
+
+    document.getElementById('btn-undo').addEventListener('click', () => {
+        if (!isGameStarted || isUndoRequested) return;
+        
+        isUndoRequested = true;
+        ws.send(JSON.stringify({ type: "UNDO_PROPOSE", color: config.role }));
+        showAlert("Yêu cầu hồi cờ", "Đã gửi yêu cầu hồi cờ, vui lòng chờ đối thủ đồng ý.");
     });
 
     document.getElementById('btn-resign').addEventListener('click', () => {
