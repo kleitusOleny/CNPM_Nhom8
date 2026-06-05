@@ -130,9 +130,7 @@
                 </td>
                 <td>
                   <div class="flex-center gap-md">
-                      <a href="${pageContext.request.contextPath}/admin/user-detail?id=${u.id}"
-                         class="btn-action"
-                         title="Xem chi tiết">
+                      <a href="${pageContext.request.contextPath}/admin/users?action=detail&id=${u.id}">
                           <span class="material-symbols-outlined">visibility</span>
                       </a>
                     <select onchange="changeRole(${u.id}, this.value)" class="search-input" style="padding: 2px var(--space-sm); font-size: var(--font-size-body-sm);">

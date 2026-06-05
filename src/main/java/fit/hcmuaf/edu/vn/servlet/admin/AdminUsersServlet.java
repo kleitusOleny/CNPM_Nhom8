@@ -13,7 +13,7 @@ import java.util.Map;
 /**
  * Chức năng quản lý người dùng
  */
-//@WebServlet("/admin/users")
+@WebServlet("/admin/users")
 public class AdminUsersServlet extends HttpServlet {
     private final UserService userService = new UserService();
     private static final int PAGE_SIZE = 10;
@@ -28,26 +28,13 @@ public class AdminUsersServlet extends HttpServlet {
             return;
         }
 
-        int page = 1;
-        String pageStr = req.getParameter("page");
-        if (pageStr != null && !pageStr.isEmpty()) {
-            try { page = Integer.parseInt(pageStr); } catch (NumberFormatException e) { page = 1; }
+        String action = req.getParameter("action");
+
+        if ("detail".equals(action)) {
+            showDetail(req, resp);
+        } else {
+            listUsers(req, resp);
         }
-
-        String search = req.getParameter("search");
-        String role = req.getParameter("role");
-
-        Map<String, Object> filters = new HashMap<>();
-        if (search != null && !search.trim().isEmpty()) filters.put("search", search.trim());
-        if (role != null && !role.isEmpty() && !"ALL".equals(role)) filters.put("role", role);
-
-        UserPageDTO pageDTO = userService.getUsersPage(page, PAGE_SIZE, filters);
-
-        req.setAttribute("userPage", pageDTO);
-        req.setAttribute("currentSearch", search);
-        req.setAttribute("currentRole", role);
-
-        req.getRequestDispatcher("/views/admin/users.jsp").forward(req, resp);
     }
 
     @Override
@@ -84,6 +71,73 @@ public class AdminUsersServlet extends HttpServlet {
         } catch (Exception e) {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write(e.getMessage());
+        }
+    }
+    private void listUsers(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        int page = 1;
+
+        String pageStr = req.getParameter("page");
+
+        if (pageStr != null && !pageStr.isEmpty()) {
+            try {
+                page = Integer.parseInt(pageStr);
+            } catch (NumberFormatException e) {
+                page = 1;
+            }
+        }
+
+        String search = req.getParameter("search");
+        String role = req.getParameter("role");
+
+        Map<String, Object> filters = new HashMap<>();
+
+        if (search != null && !search.trim().isEmpty()) {
+            filters.put("search", search.trim());
+        }
+
+        if (role != null && !role.isEmpty() && !"ALL".equals(role)) {
+            filters.put("role", role);
+        }
+
+        UserPageDTO pageDTO = userService.getUsersPage(page, PAGE_SIZE, filters);
+
+        req.setAttribute("userPage", pageDTO);
+        req.setAttribute("currentSearch", search);
+        req.setAttribute("currentRole", role);
+
+        req.getRequestDispatcher("/views/admin/users.jsp")
+                .forward(req, resp);
+    }
+    private void showDetail(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        String idStr = req.getParameter("id");
+
+        if (idStr == null || idStr.isEmpty()) {
+            resp.sendRedirect(req.getContextPath() + "/admin/users");
+            return;
+        }
+
+        try {
+            Long userId = Long.parseLong(idStr);
+
+            User user = userService.getUserById(userId);
+
+            if (user == null) {
+                resp.sendError(HttpServletResponse.SC_NOT_FOUND,
+                        "Người dùng không tồn tại");
+                return;
+            }
+
+            req.setAttribute("user", user);
+
+            req.getRequestDispatcher("/views/admin/user-detail.jsp")
+                    .forward(req, resp);
+
+        } catch (Exception e) {
+            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 }
