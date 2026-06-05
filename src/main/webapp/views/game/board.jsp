@@ -196,7 +196,7 @@
             <h2 class="text-xl font-bold text-primary">${currentGame.roomName}</h2>
             <span class="px-2 py-0.5 bg-slate-100 text-[10px] font-bold rounded uppercase">Bàn ${currentGame.boardSize}x${currentGame.boardSize}</span>
         </div>
-        <button onclick="location.href='${pageContext.request.contextPath}/lobby'" class="text-slate-500 font-bold hover:text-red-500 transition-colors">THOÁT</button>
+        <button id="btn-exit-room" class="text-slate-500 font-bold hover:text-red-500 transition-colors">THOÁT</button>
     </header>
 
     <main class="flex-1 flex flex-row overflow-hidden">
@@ -304,7 +304,7 @@
     let timerInterval = null;
     let currentTurn = "black";
     let isSelectingDead = false;
-    let isGameStarted = false; // Cờ kiểm soát trạng thái phòng
+    let isGameStarted = ('${currentGame.status}' === 'PLAYING'); // Cờ kiểm soát trạng thái phòng
     let moveCount = 0; // Đếm số nước đi để hiển thị lịch sử
     let hoverStone = null;
 
@@ -322,7 +322,7 @@
 
         // Bắt sự kiện bắt đầu game khi đủ người
         if (data.type === "GAME_STARTED") {
-            isGameStarted = true;
+            setGameStartedState(true);
             if (data.data) {
                 timeState = { ...timeState, ...data.data };
                 renderTimers();
@@ -351,6 +351,7 @@
             showAlert("Thông báo", data.data);
         }
         else if (data.type === "GAME_OVER") {
+            setGameStartedState(false);
             showAlert("Trận đấu kết thúc", data.data, `
                 <button onclick="window.location.href='${pageContext.request.contextPath}/lobby'" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors w-full">Về Sảnh Chờ</button>
             `);
@@ -373,6 +374,7 @@
             });
         }
         else if (data.type === "FINAL_SCORE") {
+            setGameStartedState(false);
             const sc = data.data;
             document.getElementById('score-black').innerText = sc.black.toFixed(1);
             document.getElementById('score-white').innerText = sc.white.toFixed(1);
@@ -743,6 +745,72 @@
         modal.classList.remove('flex');
         modal.classList.add('hidden');
     }
+
+    function setGameStartedState(started) {
+        isGameStarted = started;
+        const btnExit = document.getElementById('btn-exit-room');
+        const navLinks = document.querySelectorAll('nav a, nav button');
+        
+        if (started) {
+            if (btnExit) {
+                btnExit.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            navLinks.forEach(link => {
+                link.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+            window.onbeforeunload = function() {
+                return "Bạn đang trong trận đấu. Chắc chắn muốn thoát?";
+            };
+        } else {
+            if (btnExit) {
+                btnExit.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            navLinks.forEach(link => {
+                link.classList.remove('opacity-50', 'cursor-not-allowed');
+            });
+            window.onbeforeunload = null;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize state visually
+        setGameStartedState(isGameStarted);
+
+        const btnExit = document.getElementById('btn-exit-room');
+        if (btnExit) {
+            btnExit.addEventListener('click', (e) => {
+                if (isGameStarted) {
+                    showAlert("Đang trong trận đấu", "Không thể rời khỏi bàn cờ khi đang trong trận đấu. Vui lòng đầu hàng hoặc kết thúc ván để thoát.");
+                } else {
+                    window.location.href = '${pageContext.request.contextPath}/lobby';
+                }
+            });
+        }
+
+        const navLinks = document.querySelectorAll('nav a, nav button');
+        navLinks.forEach(link => {
+            const originalOnclick = link.getAttribute('onclick');
+            
+            link.addEventListener('click', (e) => {
+                if (isGameStarted) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showAlert("Đang trong trận đấu", "Không thể điều hướng khi đang trong trận đấu. Vui lòng đầu hàng hoặc kết thúc ván để thoát.");
+                } else {
+                    if (originalOnclick) {
+                        e.preventDefault();
+                        if (originalOnclick.includes('create-room')) {
+                            window.location.href = '${pageContext.request.contextPath}/create-room';
+                        }
+                    }
+                }
+            });
+
+            if (originalOnclick) {
+                link.removeAttribute('onclick');
+            }
+        });
+    });
 </script>
 </body>
 </html>
