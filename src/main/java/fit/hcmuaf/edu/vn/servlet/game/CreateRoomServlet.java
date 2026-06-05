@@ -10,8 +10,8 @@ import jakarta.servlet.annotation.*;
 
 import java.io.IOException;
 
-
-@WebServlet("/create-room")
+//
+//@WebServlet("/create-room")
 public class CreateRoomServlet extends HttpServlet {
 
     /*

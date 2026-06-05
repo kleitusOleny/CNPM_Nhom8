@@ -74,4 +74,8 @@ public class UserService {
             em.close();
         }
     }
+    public User getUserById(Long id) {
+        return userDAO.findById(id);
+    }
+
 }
