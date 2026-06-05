@@ -29,10 +29,13 @@ public class AdminUsersServlet extends HttpServlet {
         }
 
         String action = req.getParameter("action");
-
+        // Bước 9.3: Nếu chọn xem chi tiết người dùng
+        // Chuyển sang xử lý lấy thông tin chi tiết và hiển thị user-detail.jsp
         if ("detail".equals(action)) {
             showDetail(req, resp);
         } else {
+            // Bước 9.2: Nếu không có action hoặc action khác detail
+            // Thực hiện tải danh sách người dùng, phân trang và tìm kiếm
             listUsers(req, resp);
         }
     }
@@ -73,6 +76,7 @@ public class AdminUsersServlet extends HttpServlet {
             resp.getWriter().write(e.getMessage());
         }
     }
+
     private void listUsers(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
@@ -121,6 +125,7 @@ public class AdminUsersServlet extends HttpServlet {
         }
 
         try {
+            // Bước 9.4 Hiển thị thông tin chi tiết người dùng
             Long userId = Long.parseLong(idStr);
 
             User user = userService.getUserById(userId);
