@@ -29,8 +29,50 @@
 </head>
 <body>
 
-<div class="admin-container">
-  <jsp:include page="sidebar.jsp" />
+<div class="layout-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="sidebar-logo">⬡</div>
+            <div class="sidebar-brand-text">
+                <div class="sidebar-brand-name">Tâm Thế</div>
+                <div class="sidebar-brand-sub">Admin Panel</div>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-label">Tổng quan</div>
+                <a href="${pageContext.request.contextPath}/admin/dashboard" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    Dashboard
+                </a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-label">Quản lý</div>
+                <a href="${pageContext.request.contextPath}/admin/users" class="nav-item active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    Người dùng
+                </a>
+                <a href="${pageContext.request.contextPath}/admin/games" class="nav-item ">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                    Ván đấu
+                </a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-label">Hệ thống</div>
+                <a href="${pageContext.request.contextPath}/logout" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Đăng xuất
+                </a>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-avatar">A</div>
+                <div><div class="sidebar-username">Admin</div><div class="sidebar-role">Quản trị viên</div></div>
+            </div>
+        </div>
+    </aside>
 
   <main class="main-content">
     <div class="flex-between mb-xl">
@@ -88,6 +130,11 @@
                 </td>
                 <td>
                   <div class="flex-center gap-md">
+                      <a href="${pageContext.request.contextPath}/admin/user-detail?id=${u.id}"
+                         class="btn-action"
+                         title="Xem chi tiết">
+                          <span class="material-symbols-outlined">visibility</span>
+                      </a>
                     <select onchange="changeRole(${u.id}, this.value)" class="search-input" style="padding: 2px var(--space-sm); font-size: var(--font-size-body-sm);">
                       <option value="user" ${u.role eq 'user' ? 'selected' : ''}>User</option>
                       <option value="admin" ${u.role eq 'admin' ? 'selected' : ''}>Admin</option>
@@ -98,6 +145,7 @@
                     </button>
                   </div>
                 </td>
+
               </tr>
             </c:forEach>
           </c:when>
