@@ -233,4 +233,35 @@ public class RoomDAO {
             em.close();
         }
     }
+    // Thêm hàm
+
+    public boolean isUserInRoom(Long userId) {
+
+        EntityManager em = emf.createEntityManager();
+
+        try {
+
+            Long count = em.createQuery(
+                            """
+                            SELECT COUNT(r)
+                            FROM GameRoom r
+                            WHERE r.blackPlayer.id = :userId
+                            """,
+                            Long.class
+                    )
+                    .setParameter("userId", userId)
+                    .getSingleResult();
+
+            return count > 0;
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+            return false;
+
+        } finally {
+
+            em.close();
+        }
+    }
 }

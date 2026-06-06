@@ -12,18 +12,18 @@ import java.io.IOException;
 public class LoginServlet extends HttpServlet {
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+    protected void doGet(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
         HttpSession session = req.getSession(false);
         if (session != null && session.getAttribute("user") != null) {
-            resp.sendRedirect(req.getContextPath() + "/lobby");
+            res.sendRedirect(req.getContextPath() + "/lobby");
             return;
         }
-        req.getRequestDispatcher("/views/auth/login.jsp").forward(req, resp);
+        req.getRequestDispatcher("/views/auth/login.jsp").forward(req, res);
     }
-    
+
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         String username = req.getParameter("identifier");
         String password = req.getParameter("password");
         
@@ -37,13 +37,13 @@ public class LoginServlet extends HttpServlet {
             session.setAttribute("displayName", user.getFullName());
             
             if ("admin".equals(user.getRole())) {
-                resp.sendRedirect(req.getContextPath() + "/admin/dashboard");
+                res.sendRedirect(req.getContextPath() + "/admin/dashboard");
             } else {
-                resp.sendRedirect(req.getContextPath() + "/lobby");
+                res.sendRedirect(req.getContextPath() + "/lobby");
             }
         } else {
             req.setAttribute("errorMsg", "Tên đăng nhập hoặc mật khẩu không đúng");
-            req.getRequestDispatcher("/views/auth/login.jsp").forward(req, resp);
+            req.getRequestDispatcher("/views/auth/login.jsp").forward(req, res);
         }
     }
 }

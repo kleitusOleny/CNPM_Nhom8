@@ -97,4 +97,23 @@ public class UserDAO {
             query.setParameter("search", "%" + filters.get("search") + "%");
         }
     }
+    public User findById(Long id) {
+        EntityManager em = emf.createEntityManager();
+
+        try {
+            TypedQuery<User> query = em.createQuery(
+                    "SELECT u FROM User u WHERE u.id = :id",
+                    User.class
+            );
+
+            query.setParameter("id", id);
+
+            return query.getSingleResult();
+
+        } catch (NoResultException e) {
+            return null;
+        } finally {
+            em.close();
+        }
+    }
 }
