@@ -108,4 +108,15 @@ public class GoLogic {
         for(int i=0; i<size; i++) if(!Arrays.equals(s1[i], s2[i])) return false;
         return true;
     }
+    
+    // Tạo chuỗi ký tự từ mảng 2 chiều của bàn cờ (phục vụ cho Superko)
+    public String getBoardString(int[][] b) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                sb.append(b[i][j]);
+            }
+        }
+        return sb.toString();
+    }
 }

@@ -21,6 +21,9 @@ public class GameRoom implements Serializable {
     private String result;   // Ví dụ: "B+Resign", "W+5.5", "Đen thắng"
     private String duration; // Ví dụ: "45 phút", "1h 20m"
     
+    @Column(columnDefinition = "int default 0")
+    private int handicap; // Số lượng quân chấp
+    
     @ManyToOne
     @JoinColumn(name = "black_player_id")
     private User blackPlayer;
@@ -133,5 +136,13 @@ public class GameRoom implements Serializable {
 
     public void setDuration(String duration) {
         this.duration = duration;
+    }
+    
+    public int getHandicap() {
+        return handicap;
+    }
+
+    public void setHandicap(int handicap) {
+        this.handicap = handicap;
     }
 }

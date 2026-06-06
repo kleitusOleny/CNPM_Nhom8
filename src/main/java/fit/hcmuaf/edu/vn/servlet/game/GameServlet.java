@@ -17,6 +17,7 @@ public class GameServlet extends HttpServlet {
             return;
         }
         
+        // SEQUENCE DIAGRAM: 1.5 Chọn phòng ở sảnh và tham gia (/game/{id})
         String pathInfo = req.getPathInfo(); // Sẽ lấy được ID từ /game/{id}
         if (pathInfo != null && pathInfo.length() > 1) {
             try {
@@ -32,13 +33,16 @@ public class GameServlet extends HttpServlet {
                         UserDAO userDAO = new UserDAO();
                         room.setWhitePlayer(userDAO.findByUsername(currentUsername));
                         room.setStatus("PLAYING");
+                        // SEQUENCE DIAGRAM: 1.6 update(Thêm WhitePlayer vào phòng)
                         roomDAO.update(room);
+                        // SEQUENCE DIAGRAM: 1.7 Cập nhật thành công
                         
                         // Quan trọng: Sau khi update, hãy nạp lại room từ DB để đảm bảo Object có đầy đủ data
                         room = roomDAO.findById(room.getId());
                     }
                     
                     req.setAttribute("currentGame", room);
+                    // SEQUENCE DIAGRAM: 1.8 Điều hướng sang bàn cờ (/game/{id})
                     req.getRequestDispatcher("/views/game/board.jsp").forward(req, resp);
                     return;
                 }
