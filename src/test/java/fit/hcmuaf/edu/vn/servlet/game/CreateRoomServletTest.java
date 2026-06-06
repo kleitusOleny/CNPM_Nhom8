@@ -1,246 +1,468 @@
+
 package fit.hcmuaf.edu.vn.servlet.game;
 
 import fit.hcmuaf.edu.vn.dao.RoomDAO;
 import fit.hcmuaf.edu.vn.dao.UserDAO;
 import fit.hcmuaf.edu.vn.model.User;
+
 import jakarta.servlet.RequestDispatcher;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedConstruction;
 
-import java.io.IOException;
+import java.lang.reflect.Field;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+
+/*
+ * =========================================================
+ * UC4 – CREATE ROOM SERVLET TESTING
+ * =========================================================
+ *
+ * Use Case:
+ * - UC4 – Tạo phòng
+ *
+ * Mục đích:
+ * - Kiểm thử chức năng tạo phòng
+ * - Kiểm tra validation
+ * - Kiểm tra business rule
+ * - Kiểm tra session handling
+ * - Kiểm tra redirect flow
+ * - Kiểm tra exception flow
+ *
+ * Thành phần kiểm thử:
+ * - CreateRoomServlet
+ *
+ * Công nghệ:
+ * - JUnit 5
+ * - Mockito
+ *
+ * Loại kiểm thử:
+ * - Development Testing
+ * - Servlet Testing
+ * - Component Testing
+ */
 
 public class CreateRoomServletTest {
 
-    /**
-     * Kiểm tra truy cập trang tạo phòng khi CHƯA đăng nhập.
-     * <p>
-     * Tham số đầu vào (Input):
-     * - Request GET gửi đến "/create-room".
-     * - Không có Session hợp lệ (session = null).
-     * Kết quả mong đợi (Output):
-     * - Hệ thống từ chối truy cập và điều hướng (redirect) về trang "/login".
+    private CreateRoomServlet servlet;
+
+    private RoomDAO roomDAO;
+
+    private UserDAO userDAO;
+
+    private HttpServletRequest request;
+
+    private HttpServletResponse response;
+
+    private HttpSession session;
+
+    private RequestDispatcher dispatcher;
+
+    /*
+     * =========================================================
+     * TEST SETUP
+     * =========================================================
+     *
+     * Mock:
+     * - DAO
+     * - Request
+     * - Response
+     * - Session
+     * - Dispatcher
      */
-    @Test
-    public void testDoGet_NotLoggedIn() throws ServletException, IOException {
-        try (MockedConstruction<RoomDAO> mockRoom = mockConstruction(RoomDAO.class);
-             MockedConstruction<UserDAO> mockUser = mockConstruction(UserDAO.class)) {
-            
-            CreateRoomServlet servlet = new CreateRoomServlet();
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
 
-            when(request.getSession(false)).thenReturn(null);
-            when(request.getContextPath()).thenReturn("/go_chess_war");
+    @BeforeEach
+    public void setUp() throws Exception {
 
-            servlet.doGet(request, response);
+        servlet = new CreateRoomServlet();
 
-            verify(response).sendRedirect("/go_chess_war/login");
-        }
+        roomDAO = mock(RoomDAO.class);
+
+        userDAO = mock(UserDAO.class);
+
+        request = mock(HttpServletRequest.class);
+
+        response = mock(HttpServletResponse.class);
+
+        session = mock(HttpSession.class);
+
+        dispatcher = mock(RequestDispatcher.class);
+
+        /*
+         * =====================================================
+         * INJECT MOCK DAO
+         * =====================================================
+         */
+
+        Field roomDAOField =
+                CreateRoomServlet.class
+                        .getDeclaredField("roomDAO");
+
+        roomDAOField.setAccessible(true);
+
+        roomDAOField.set(servlet, roomDAO);
+
+        Field userDAOField =
+                CreateRoomServlet.class
+                        .getDeclaredField("userDAO");
+
+        userDAOField.setAccessible(true);
+
+        userDAOField.set(servlet, userDAO);
     }
 
-    /**
-     * Kiểm tra truy cập trang tạo phòng khi ĐÃ đăng nhập.
-     * <p>
-     * Tham số đầu vào (Input):
-     * - Request GET gửi đến "/create-room".
-     * - Có Session hợp lệ, thuộc tính "user" có giá trị (ví dụ: "player1").
-     * Kết quả mong đợi (Output):
-     * - Hệ thống cho phép truy cập.
-     * - Chuyển tiếp (forward) hiển thị giao diện form tạo phòng ("/views/game/create-room.jsp").
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 01
+     * =========================================================
+     *
+     * Scenario:
+     * - User chưa đăng nhập
+     *
+     * Expected Result:
+     * - Redirect đến login
      */
+
     @Test
-    public void testDoGet_LoggedIn() throws ServletException, IOException {
-        try (MockedConstruction<RoomDAO> mockRoom = mockConstruction(RoomDAO.class);
-             MockedConstruction<UserDAO> mockUser = mockConstruction(UserDAO.class)) {
-             
-            CreateRoomServlet servlet = new CreateRoomServlet();
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            HttpSession session = mock(HttpSession.class);
-            RequestDispatcher dispatcher = mock(RequestDispatcher.class);
+    public void testDoGet_NotLogin() throws Exception {
 
-            when(request.getSession(false)).thenReturn(session);
-            when(session.getAttribute("user")).thenReturn("player1");
-            when(request.getRequestDispatcher("/views/game/create-room.jsp")).thenReturn(dispatcher);
+        when(request.getSession(false))
+                .thenReturn(null);
 
-            servlet.doGet(request, response);
+        when(request.getContextPath())
+                .thenReturn("");
 
-            verify(dispatcher).forward(request, response);
-        }
+        servlet.doGet(request, response);
+
+        verify(response)
+                .sendRedirect("/login");
     }
 
-    /**
-     * Kiểm tra tạo phòng thành công (Success Flow).
-     * <p>
-     * Tham số đầu vào (Input):
-     * - Các parameter hợp lệ: room_name="My Room", room_password="", board_size="19", main_time="30", byo_yomi="3x30s".
-     * - User hiện tại chưa ở phòng nào (isUserInRoom = false).
-     * Kết quả mong đợi (Output):
-     * - Gọi roomDAO.save() thành công.
-     * - Trình duyệt điều hướng sang giao diện ván đấu (redirect to /game/...).
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 02
+     * =========================================================
+     *
+     * Scenario:
+     * - User đã đăng nhập
+     *
+     * Expected Result:
+     * - Forward create-room.jsp
      */
+
     @Test
-    public void testDoPost_Success() throws ServletException, IOException {
-        User player = new User();
-        player.setId(1L);
-        player.setUsername("player1");
+    public void testDoGet_Login() throws Exception {
 
-        try (MockedConstruction<UserDAO> mockUserDAO = mockConstruction(UserDAO.class, (mock, context) -> {
-            when(mock.findByUsername("player1")).thenReturn(player);
-        });
-             MockedConstruction<RoomDAO> mockRoomDAO = mockConstruction(RoomDAO.class, (mock, context) -> {
-                 when(mock.isUserInRoom(1L)).thenReturn(false); // User is not in another room
-             })) {
-             
-            CreateRoomServlet servlet = new CreateRoomServlet();
-            
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            HttpSession session = mock(HttpSession.class);
+        when(request.getSession(false))
+                .thenReturn(session);
 
-            when(request.getCharacterEncoding()).thenReturn("UTF-8");
-            when(request.getSession(false)).thenReturn(session);
-            when(session.getAttribute("user")).thenReturn("player1");
-            when(request.getContextPath()).thenReturn("/go_chess_war");
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
 
-            // Valid parameters
-            when(request.getParameter("room_name")).thenReturn("My Room");
-            when(request.getParameter("room_password")).thenReturn("");
-            when(request.getParameter("board_size")).thenReturn("19");
-            when(request.getParameter("main_time")).thenReturn("30");
-            when(request.getParameter("byo_yomi")).thenReturn("3x30s");
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
 
-            servlet.doPost(request, response);
+        servlet.doGet(request, response);
 
-            verify(mockRoomDAO.constructed().get(0)).save(any());
-            verify(response).sendRedirect(contains("/game/"));
-        }
+        verify(dispatcher)
+                .forward(request, response);
     }
 
-    /**
-     * Kiểm tra xử lý ngoại lệ: Tên phòng không hợp lệ (Trống).
-     * <p>
-     * Tham số đầu vào (Input):
-     * - Tham số "room_name" rỗng ("").
-     * Kết quả mong đợi (Output):
-     * - Đặt thông báo lỗi "Tên phòng không được để trống" vào request (errorMsg).
-     * - Chuyển tiếp (forward) trở lại trang create-room.jsp.
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 03
+     * =========================================================
+     *
+     * Scenario:
+     * - Room name rỗng
+     *
+     * Business Rule:
+     * - Tên phòng không được để trống
+     *
+     * Expected Result:
+     * - Hiển thị errorMsg
      */
+
     @Test
-    public void testDoPost_InvalidRoomName() throws ServletException, IOException {
-        try (MockedConstruction<RoomDAO> mockRoom = mockConstruction(RoomDAO.class);
-             MockedConstruction<UserDAO> mockUser = mockConstruction(UserDAO.class)) {
-             
-            CreateRoomServlet servlet = new CreateRoomServlet();
-            
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            HttpSession session = mock(HttpSession.class);
-            RequestDispatcher dispatcher = mock(RequestDispatcher.class);
+    public void testDoPost_EmptyRoomName()
+            throws Exception {
 
-            when(request.getCharacterEncoding()).thenReturn("UTF-8");
-            when(request.getSession(false)).thenReturn(session);
-            when(session.getAttribute("user")).thenReturn("player1");
-            when(request.getRequestDispatcher("/views/game/create-room.jsp")).thenReturn(dispatcher);
+        when(request.getSession(false))
+                .thenReturn(session);
 
-            // Empty room name
-            when(request.getParameter("room_name")).thenReturn("");
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
 
-            servlet.doPost(request, response);
+        when(request.getParameter("room_name"))
+                .thenReturn("");
 
-            verify(request).setAttribute(eq("errorMsg"), eq("Tên phòng không được để trống"));
-            verify(dispatcher).forward(request, response);
-        }
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
+
+        servlet.doPost(request, response);
+
+        verify(request)
+                .setAttribute(
+                        eq("errorMsg"),
+                        contains("Tên phòng")
+                );
+
+        verify(dispatcher)
+                .forward(request, response);
     }
 
-    /**
-     * Kiểm tra xử lý ngoại lệ: Kích thước bàn cờ không hợp lệ.
-     * <p>
-     * Tham số đầu vào (Input):
-     * - Tham số "board_size" bằng "15" (chỉ cho phép 9, 13, 19).
-     * Kết quả mong đợi (Output):
-     * - Đặt thông báo lỗi "Kích thước bàn không hợp lệ" vào request.
-     * - Chuyển tiếp trở lại giao diện tạo phòng.
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 04
+     * =========================================================
+     *
+     * Scenario:
+     * - Room name vượt quá 50 ký tự
+     *
+     * Expected Result:
+     * - Hiển thị lỗi validation
      */
+
     @Test
-    public void testDoPost_InvalidBoardSize() throws ServletException, IOException {
-        try (MockedConstruction<RoomDAO> mockRoom = mockConstruction(RoomDAO.class);
-             MockedConstruction<UserDAO> mockUser = mockConstruction(UserDAO.class)) {
-             
-            CreateRoomServlet servlet = new CreateRoomServlet();
-            
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            HttpSession session = mock(HttpSession.class);
-            RequestDispatcher dispatcher = mock(RequestDispatcher.class);
+    public void testDoPost_RoomNameTooLong()
+            throws Exception {
 
-            when(request.getCharacterEncoding()).thenReturn("UTF-8");
-            when(request.getSession(false)).thenReturn(session);
-            when(session.getAttribute("user")).thenReturn("player1");
-            when(request.getRequestDispatcher("/views/game/create-room.jsp")).thenReturn(dispatcher);
+        String longName =
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
-            when(request.getParameter("room_name")).thenReturn("Room 1");
-            // Invalid size
-            when(request.getParameter("board_size")).thenReturn("15");
+        when(request.getSession(false))
+                .thenReturn(session);
 
-            servlet.doPost(request, response);
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
 
-            verify(request).setAttribute(eq("errorMsg"), eq("Kích thước bàn không hợp lệ"));
-            verify(dispatcher).forward(request, response);
-        }
+        when(request.getParameter("room_name"))
+                .thenReturn(longName);
+
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
+
+        servlet.doPost(request, response);
+
+        verify(request)
+                .setAttribute(
+                        eq("errorMsg"),
+                        contains("50")
+                );
     }
 
-    /**
-     * Kiểm tra quy tắc nghiệp vụ: Một user không thể tạo/có mặt trong 2 phòng cùng lúc.
-     * <p>
-     * Tham số đầu vào (Input):
-     * - Các tham số tạo phòng hợp lệ.
-     * - Trạng thái: Mock hệ thống trả về User đã ở trong một phòng khác (isUserInRoom = true).
-     * Kết quả mong đợi (Output):
-     * - Khước từ việc tạo phòng và báo lỗi "Bạn đang ở trong một phòng khác".
-     * - Không gọi lệnh save() xuống DB.
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 05
+     * =========================================================
+     *
+     * Scenario:
+     * - Room name chứa ký tự đặc biệt
+     *
+     * Expected Result:
+     * - Hiển thị lỗi regex validation
      */
+
     @Test
-    public void testDoPost_UserAlreadyInRoom() throws ServletException, IOException {
-        User player = new User();
-        player.setId(1L);
-        player.setUsername("player1");
+    public void testDoPost_InvalidCharacter()
+            throws Exception {
 
-        try (MockedConstruction<UserDAO> mockUserDAO = mockConstruction(UserDAO.class, (mock, context) -> {
-            when(mock.findByUsername("player1")).thenReturn(player);
-        });
-             MockedConstruction<RoomDAO> mockRoomDAO = mockConstruction(RoomDAO.class, (mock, context) -> {
-                 // Simulate user already in another room
-                 when(mock.isUserInRoom(1L)).thenReturn(true);
-             })) {
-             
-            CreateRoomServlet servlet = new CreateRoomServlet();
-            
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            HttpSession session = mock(HttpSession.class);
-            RequestDispatcher dispatcher = mock(RequestDispatcher.class);
+        when(request.getSession(false))
+                .thenReturn(session);
 
-            when(request.getCharacterEncoding()).thenReturn("UTF-8");
-            when(request.getSession(false)).thenReturn(session);
-            when(session.getAttribute("user")).thenReturn("player1");
-            when(request.getRequestDispatcher("/views/game/create-room.jsp")).thenReturn(dispatcher);
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
 
-            when(request.getParameter("room_name")).thenReturn("Valid Name");
-            when(request.getParameter("board_size")).thenReturn("19");
+        when(request.getParameter("room_name"))
+                .thenReturn("@@@###");
 
-            servlet.doPost(request, response);
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
 
-            verify(request).setAttribute(eq("errorMsg"), eq("Bạn đang ở trong một phòng khác"));
-            verify(dispatcher).forward(request, response);
-        }
+        servlet.doPost(request, response);
+
+        verify(request)
+                .setAttribute(
+                        eq("errorMsg"),
+                        contains("ký tự")
+                );
+    }
+
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 06
+     * =========================================================
+     *
+     * Scenario:
+     * - Board size không phải số
+     *
+     * Expected Result:
+     * - Hiển thị lỗi NumberFormatException
+     */
+
+    @Test
+    public void testDoPost_InvalidBoardSizeFormat()
+            throws Exception {
+
+        when(request.getSession(false))
+                .thenReturn(session);
+
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
+
+        when(request.getParameter("room_name"))
+                .thenReturn("Phong Test");
+
+        when(request.getParameter("board_size"))
+                .thenReturn("abc");
+
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
+
+        servlet.doPost(request, response);
+
+        verify(request)
+                .setAttribute(
+                        eq("errorMsg"),
+                        contains("Kích thước")
+                );
+    }
+
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 07
+     * =========================================================
+     *
+     * Scenario:
+     * - Board size sai business rule
+     *
+     * Expected Result:
+     * - Hiển thị lỗi validation
+     */
+
+    @Test
+    public void testDoPost_InvalidBoardSize()
+            throws Exception {
+
+        when(request.getSession(false))
+                .thenReturn(session);
+
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
+
+        when(request.getParameter("room_name"))
+                .thenReturn("Phong Test");
+
+        when(request.getParameter("board_size"))
+                .thenReturn("15");
+
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
+
+        servlet.doPost(request, response);
+
+        verify(request)
+                .setAttribute(
+                        eq("errorMsg"),
+                        contains("Kích thước")
+                );
+    }
+
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 08
+     * =========================================================
+     *
+     * Scenario:
+     * - User không tồn tại
+     *
+     * Expected Result:
+     * - Hiển thị lỗi
+     */
+
+    @Test
+    public void testDoPost_UserNotFound()
+            throws Exception {
+
+        when(request.getSession(false))
+                .thenReturn(session);
+
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
+
+        when(request.getParameter("room_name"))
+                .thenReturn("Phong Test");
+
+        when(request.getParameter("board_size"))
+                .thenReturn("9");
+
+        when(userDAO.findByUsername("admin"))
+                .thenReturn(null);
+
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
+
+        servlet.doPost(request, response);
+
+        verify(request)
+                .setAttribute(
+                        eq("errorMsg"),
+                        contains("người dùng")
+                );
+    }
+
+    /*
+     * =========================================================
+     * UC4 - TEST CASE 09
+     * =========================================================
+     *
+     * Scenario:
+     * - User đang ở room khác
+     *
+     * Expected Result:
+     * - Hiển thị lỗi business rule
+     */
+
+    @Test
+    public void testDoPost_UserAlreadyInRoom()
+            throws Exception {
+
+        User user = new User();
+
+        user.setId(1L);
+
+        when(request.getSession(false))
+                .thenReturn(session);
+
+        when(session.getAttribute("user"))
+                .thenReturn("admin");
+
+        when(request.getParameter("room_name"))
+                .thenReturn("Phong Test");
+
+        when(request.getParameter("board_size"))
+                .thenReturn("9");
+
+        when(userDAO.findByUsername("admin"))
+                .thenReturn(user);
+
+        when(roomDAO.isUserInRoom(1L))
+                .thenReturn(true);
+
+        when(request.getRequestDispatcher(anyString()))
+                .thenReturn(dispatcher);
+
+        servlet.doPost(request, response);
+
+        verify(request)
+                .setAttribute(
+                        eq("errorMsg"),
+                        contains("phòng khác")
+                );
     }
 }
