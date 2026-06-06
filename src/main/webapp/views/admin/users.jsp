@@ -137,8 +137,8 @@
                       <option value="user" ${u.role eq 'user' ? 'selected' : ''}>User</option>
                       <option value="admin" ${u.role eq 'admin' ? 'selected' : ''}>Admin</option>
                     </select>
-
-                    <button class="btn-action delete" onclick="deleteUser(${u.id}, '${u.username}')" title="Xóa tài khoản">
+<%--                      Bước 9.5 Admin nhấn vào biểu tượng thùng rác để thực hiện chức năng xóa tài khoản--%>
+                      <button class="btn-action delete" onclick="deleteUser(${u.id}, '${u.username}')" title="Xóa tài khoản">
                       <span class="material-symbols-outlined text-[18px]">delete</span>
                     </button>
                   </div>
@@ -195,10 +195,12 @@
     })
     .catch(error => alert('❌ Lỗi kết nối hệ thống: ' + error));
   }
+     // Bước 9.6 Xác nhận: Hệ thống hiển thị hộp thoại yêu cầu Admin xác nhận hành động.
 
   function deleteUser(id, username) {
     if (confirm('⚠️ Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản "' + username + '"?')) {
-      const data = new URLSearchParams();
+        // 9.7. Đồng ý: Admin nhấn "Xác nhận" trên giao diện.
+        const data = new URLSearchParams();
       data.append('action', 'delete');
       data.append('id', id);
 
@@ -208,6 +210,7 @@
         body: data.toString()
       })
       .then(response => {
+          // Bước 9.9 thông báo xóa tài khoản thành công
         if (response.ok) {
           alert('✅ Đã xóa thành viên thành công!');
           window.location.reload();
