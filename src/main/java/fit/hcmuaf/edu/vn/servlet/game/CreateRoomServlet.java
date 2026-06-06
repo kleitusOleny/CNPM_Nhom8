@@ -109,6 +109,7 @@ public class CreateRoomServlet extends HttpServlet {
 
             /*
              * =================================================
+             * SEQUENCE DIAGRAM: 1.1 Gửi form tạo phòng
              * BASIC FLOW 4.3
              * =================================================
              *
@@ -348,6 +349,7 @@ public class CreateRoomServlet extends HttpServlet {
 
             /*
              * =================================================
+             * SEQUENCE DIAGRAM: 1.2 save(GameRoom)
              * BASIC FLOW 4.5
              * =================================================
              *
@@ -356,8 +358,11 @@ public class CreateRoomServlet extends HttpServlet {
 
             roomDAO.save(room);
 
+            /* SEQUENCE DIAGRAM: 1.3 Lưu phòng thành công */
+
             /*
              * =================================================
+             * SEQUENCE DIAGRAM: 1.4 Điều hướng sang bàn cờ (/game/{id})
              * BASIC FLOW 4.6
              * =================================================
              *

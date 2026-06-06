@@ -189,14 +189,11 @@ public class GameWebSocket {
     
     @OnOpen
     public void onOpen(Session session, @PathParam("roomId") Long roomId) {
-        // [Bước 6.2] Kết nối WebSocket (@OnOpen)
+        // SEQUENCE DIAGRAM: 2.1 & 2.3 Khởi tạo kết nối WebSocket (onOpen)
         Set<Session> sessions = roomSessions.computeIfAbsent(roomId, k -> Collections.synchronizedSet(new HashSet<>()));
         sessions.add(session);
         
         RoomDAO dao = new RoomDAO();
-        // [Bước 6.3] findById(roomId)
-        // [Bước 6.4, 6.5] Query Room & Moves dưới DB và trả về
-        // [Bước 6.6] Trả về GameRoom
         GameRoom room = dao.findById(roomId);
         
         if (room != null) {
@@ -216,11 +213,10 @@ public class GameWebSocket {
                 }
             }
             
-            // [Bước 6.7] Kiểm tra số lượng Session (>= 2)
             if (sessions.size() >= 2 && !timer.isGameStarted) {
                 timer.isGameStarted = true;
                 timer.lastTurnStartTime = System.currentTimeMillis();
-                // [Bước 6.8] Broadcast "GAME_STARTED" (kèm Timer)
+                // SEQUENCE DIAGRAM: 2.4 & 2.5 Phát tín hiệu "GAME_STARTED"
                 broadcast(roomId, gson.toJson(new GameResponse("GAME_STARTED", getTimeData(timer))), null);
             } else if (timer.isGameStarted) {
                 // Gửi trạng thái GAME_STARTED cho người vừa reconnect
@@ -247,15 +243,12 @@ public class GameWebSocket {
     @OnMessage
     public void onMessage(String message, Session session, @PathParam("roomId") Long roomId) {
         try {
-            // [Bước 6.10], [Bước 6.30], [Bước 6.35]: Nhận các message từ Browser (Client)
             Map<String, Object> data = gson.fromJson(message, Map.class);
             String type = (String) data.get("type");
             RoomDAO dao = new RoomDAO();
-            // [Bước 6.12, 6.13] findById(roomId) để lấy trạng thái bàn cờ hiện tại
             GameRoom room = dao.findById(roomId);
             
             if (room == null) return;
-            // [Bước 6.11] Cập nhật Timer (Trừ thời gian đã qua)
             RoomTimer timer = gameTimers.computeIfAbsent(roomId, k -> new RoomTimer(room.getTimeControl()));
             
             // Chặn thao tác nếu game chưa bắt đầu
@@ -288,9 +281,13 @@ public class GameWebSocket {
             Map<String, Object> timeData = getTimeData(timer);
             
             if ("RESIGN".equals(type)) {
+                // SEQUENCE DIAGRAM: 5.1 Nhấn nút Đầu hàng (Gửi sự kiện "RESIGN")
                 String color = (String) data.get("color");
                 String res = color.equals("black") ? "Trắng thắng (Đen đầu hàng)" : "Đen thắng (Trắng đầu hàng)";
+                // SEQUENCE DIAGRAM: 5.2 finishGame(Cập nhật status="FINISHED")
                 dao.finishGame(roomId, res);
+                // SEQUENCE DIAGRAM: 5.3 Cập nhật thành công
+                // SEQUENCE DIAGRAM: 5.4 & 5.5 Phát tín hiệu "GAME_OVER"
                 broadcast(roomId, gson.toJson(new GameResponse("GAME_OVER", res)), null);
                 gameTimers.remove(roomId);
                 // Xóa lịch sử bàn cờ khi có người đầu hàng
@@ -334,6 +331,7 @@ public class GameWebSocket {
             
             // Xử lý Hồi nước đi (Undo)
             if ("UNDO_PROPOSE".equals(type)) {
+                // SEQUENCE DIAGRAM: 4.1 Đề xuất hồi cờ HOẶC 4.3 Đồng ý hồi cờ
                 Stack<List<GameMove>> stack = moveHistoryMap.get(roomId);
                 if (stack == null || stack.isEmpty()) {
                     session.getBasicRemote().sendText(gson.toJson(new GameResponse("INVALID", "Không có nước đi nào để hoàn tác!")));
@@ -344,11 +342,14 @@ public class GameWebSocket {
                 undos.add(session.getId());
                 
                 if (undos.size() >= 2) {
+                    // SEQUENCE DIAGRAM: 4.4 Xóa các nước đi hiện tại
                     List<GameMove> previousMoves = stack.pop();
                     dao.deleteMoves(roomId); // Xóa toàn bộ nước đi hiện tại ở DB
+                    
+                    // SEQUENCE DIAGRAM: 4.5 Lưu lại danh sách nước đi cũ
                     for (GameMove m : previousMoves) {
                         m.setRoom(room);
-                        dao.saveMove(m); // Phục hồi lại các nước đi cũ (kể cả các quân đã từng bị ăn)
+                        dao.saveMove(m); // Phục hồi lại các nước đi cũ
                     }
                     
                     // Lùi lại 1 lượt
@@ -361,31 +362,32 @@ public class GameWebSocket {
                         bHistory.pop();
                     }
                     
-                    // Trả về dữ liệu để client render lại bàn cờ
+                    // SEQUENCE DIAGRAM: 4.6 Cập nhật lại bàn cờ (UNDO_SUCCESS)
                     Map<String, Object> syncData = new HashMap<>();
                     syncData.put("moves", previousMoves);
                     syncData.put("nextTurn", timer.currentTurn);
                     broadcast(roomId, gson.toJson(new GameResponse("UNDO_SUCCESS", syncData)), null);
                 } else {
+                    // SEQUENCE DIAGRAM: 4.2 Gửi yêu cầu xác nhận hồi cờ (UNDO_REQUESTED)
                     broadcast(roomId, gson.toJson(new GameResponse("UNDO_REQUESTED", "Đối thủ muốn hoàn tác nước đi vừa rồi. Bạn đồng ý không?")), session);
                 }
                 return;
             }
             
             if ("UNDO_REJECT".equals(type)) {
+                // SEQUENCE DIAGRAM: 4.7 Từ chối hồi cờ
                 undoProposalMap.remove(roomId);
+                // SEQUENCE DIAGRAM: 4.8 Thông báo bị từ chối
                 broadcast(roomId, gson.toJson(new GameResponse("UNDO_REJECTED", "Đối thủ không đồng ý hoàn tác nước đi.")), session);
                 return;
             }
             
             if ("PASS".equals(type)) {
                 timer.currentTurn = timer.currentTurn.equals("black") ? "white" : "black";
-                // [Bước 6.31] consecutivePasses++
                 int passes = consecutivePasses.getOrDefault(roomId, 0) + 1;
                 consecutivePasses.put(roomId, passes);
                 
                 if (passes >= 2) {
-                    // [Bước 6.32] Broadcast "START_DEAD_SELECTION"
                     broadcast(roomId, gson.toJson(new GameResponse("START_DEAD_SELECTION", null)), null);
                 } else {
                     Map<String, Object> res = new HashMap<>();
@@ -417,7 +419,6 @@ public class GameWebSocket {
                 return;
             }
             
-            // [Bước 6.35] Send {type: "CONFIRM_SCORE"}
             if ("CONFIRM_SCORE".equals(type)) {
                 Set<String> confirms = confirmationMap.computeIfAbsent(roomId, k -> Collections.synchronizedSet(new HashSet<>()));
                 confirms.add(session.getId());
@@ -431,6 +432,7 @@ public class GameWebSocket {
             }
             
             consecutivePasses.put(roomId, 0);
+            // SEQUENCE DIAGRAM: 3.1 Gửi tọa độ nước đi (x, y)
             int x = ((Double) data.get("x")).intValue();
             int y = ((Double) data.get("y")).intValue();
             String color = (String) data.get("color");
@@ -458,16 +460,13 @@ public class GameWebSocket {
             }
             
             if (currentBoard[x][y] != 0) return;
-            // [Bước 6.14] setBoard(currentBoard)
+            // SEQUENCE DIAGRAM: 3.2 Kiểm tra luật (Suicide, Superko, Khí)
             GoLogic logic = new GoLogic(size);
             logic.setBoard(currentBoard);
             
             int myColorInt = color.equals("black") ? 1 : 2;
             int opponentColorInt = (myColorInt == 1) ? 2 : 1;
-            // [Bước 6.15] isSuicide(x, y, color)
             if (logic.isSuicide(x, y, myColorInt)) {
-                // [Alt: Nước đi tự sát]
-                // [Bước 6.16, 6.17] Send "INVALID" (Nước đi tự sát!)
                 session.getBasicRemote().sendText(gson.toJson(new GameResponse("INVALID", "Nước đi tự sát!")));
                 return;
             }
@@ -477,10 +476,7 @@ public class GameWebSocket {
                 nextBoard[i] = currentBoard[i].clone();
             }
             nextBoard[x][y] = myColorInt;
-            // [Alt: Nước đi hợp lệ] -> [Bước 6.18] false (Tiếp tục xử lý)
             
-            // [Bước 6.19] Kiểm tra Capture (Ăn quân đối phương)
-            // [Bước 6.20] Trả về danh sách quân bị ăn (toRemove)
             List<StoneCoords> toRemove = new ArrayList<>();
             int[][] neighbors = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
             
@@ -527,11 +523,11 @@ public class GameWebSocket {
             }
             moveStack.push(clonedMoves);
             
+            // SEQUENCE DIAGRAM: 3.3 Nước đi hợp lệ (Trả về trạng thái bàn cờ)
             // Nếu hợp lệ, lưu trạng thái mới vào lịch sử
             history.push(nextBoardStr);
             
             for (StoneCoords s : toRemove) {
-                // [Bước 6.21, 6.22] removeMoveAt(roomId, x, y) - Xóa quân bị ăn trong DB
                 dao.removeMoveAt(roomId, s.x, s.y);
             }
             
@@ -551,9 +547,10 @@ public class GameWebSocket {
             newMove.setY(y);
             newMove.setColor(color);
             newMove.setMoveOrder(moves != null ? moves.size() + 1 : 1);
+            // SEQUENCE DIAGRAM: 3.4 saveMove(Lưu nước đi)
             dao.saveMove(newMove);
+            // SEQUENCE DIAGRAM: 3.5 Lưu thành công
             
-            // [Bước 6.27] Đổi lượt, xem xét luật chấp quân (Handicap)
             int handicap = room.getHandicap();
             int currentMovesCount = moves != null ? moves.size() + 1 : 1;
             
@@ -569,6 +566,7 @@ public class GameWebSocket {
             Map<String, Object> moveResponse = new HashMap<>(data);
             moveResponse.put("nextTurn", timer.currentTurn);
             moveResponse.put("timeData", timeData);
+            // SEQUENCE DIAGRAM: 3.6 & 3.7 Broadcast "MOVE" (Cập nhật giao diện Đen/Trắng)
             // [Bước 6.28] Broadcast nước đi mới & toRemove
             broadcast(roomId, gson.toJson(moveResponse), null);
             
@@ -593,8 +591,6 @@ public class GameWebSocket {
         logic.setBoard(finalBoard);
         // [Handicap] Tự động điều chỉnh Komi: Nếu có chấp quân thì Komi chỉ còn 0.5 để tránh hòa
         double komi = room.getHandicap() > 0 ? 0.5 : 6.5;
-        // [Bước 6.36] calculateFinalScore(komi)
-        // [Bước 6.37] Trả về Map<String, Double> (Điểm số)
         Map<String, Double> scores = logic.calculateFinalScore(komi);
         
         String result;
@@ -606,10 +602,8 @@ public class GameWebSocket {
         } else {
             result = "Trắng thắng " + (scores.get("white") - scores.get("black"));
         }
-        // [Bước 6.38, 6.39, 6.40, 6.41] finishGame(roomId, result) -> Update status = "FINISHED"
         dao.finishGame(roomId, result);
         
-        // [Bước 6.42] Broadcast "FINAL_SCORE" & "GAME_OVER"
         broadcast(roomId, gson.toJson(new GameResponse("FINAL_SCORE", scores)), null);
         
         gameTimers.remove(roomId);
