@@ -19,14 +19,15 @@ public class LoginServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        // 1. Kiểm tra xem người dùng đã đăng nhập chưa từ Session
+        // Alternative Flow: 1.1.a. Người dùng đã đăng nhập từ trước
+        // Hệ thống phát hiện Session đã tồn tại và hợp lệ
         HttpSession session = req.getSession(false);
         if (session != null && session.getAttribute("user") != null) {
-            // Đã đăng nhập -> Tự động chuyển hướng về phòng chờ (lobby)
+            // Tự động chuyển hướng người dùng về thẳng phòng chờ (/lobby)
             resp.sendRedirect(req.getContextPath() + "/lobby");
             return;
         }
-        // Chưa đăng nhập -> Chuyển hướng hiển thị trang JSP đăng nhập
+        // Hiển thị giao diện trang đăng nhập (chuẩn bị cho bước 1.1)
         req.getRequestDispatcher("/views/auth/login.jsp").forward(req, resp);
     }
     
@@ -43,38 +44,51 @@ public class LoginServlet extends HttpServlet {
      */
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        // 1. Lấy thông tin định danh (Tên đăng nhập hoặc Email) và mật khẩu từ form gửi lên
+        // Basic Flow: 1.2. Gửi yêu cầu
+        // Giao diện gửi yêu cầu POST chứa thông tin định danh và mật khẩu đến LoginServlet
         String identifier = req.getParameter("identifier");
         String password = req.getParameter("password");
         
-        // 2. Khởi tạo đối tượng UserDAO qua hàm helper
         UserDAO userDAO = getUserDAO();
         
-        // 3. Thử tìm kiếm tài khoản theo tên đăng nhập (username)
+        // Basic Flow: 1.3. Kiểm tra tài khoản
+        // 1.3.1. Tìm kiếm người dùng theo tên đăng nhập
         User user = userDAO.findByUsername(identifier);
         
-        // 4. Nếu không tìm thấy theo username, tiếp tục tìm theo email (đáp ứng đúng nhãn hiển thị "Tên đăng nhập / Email")
+        // 1.3.1. Nếu không tìm thấy, tiếp tục tìm kiếm theo địa chỉ email
         if (user == null) {
             user = userDAO.findByEmail(identifier);
         }
         
-        // 5. Xác thực mật khẩu thông qua thư viện bCrypt
+        // (1.3.2. Cơ sở dữ liệu trả về thông tin người dùng tương ứng được xử lý ngầm trong DAO)
+        
+        // 1.3.3. So sánh mật khẩu người dùng nhập vào với mật khẩu đã mã hóa bằng BCrypt
         if (user != null && BCrypt.checkpw(password, user.getPassword())) {
-            // Mật khẩu đúng -> Tạo mới Session lưu giữ thông tin đăng nhập
+            // Basic Flow: 1.4. Tạo Session
+            // Khi mật khẩu xác thực đúng, khởi tạo một HttpSession mới
             HttpSession session = req.getSession(true);
+            
+            // Lưu các thuộc tính: tên đăng nhập, quyền hạn (role) và tên hiển thị
             session.setAttribute("user", user.getUsername());
             session.setAttribute("role", user.getRole());
             session.setAttribute("displayName", user.getFullName());
             
-            // 6. Phân quyền chuyển hướng người dùng dựa theo vai trò (admin hoặc user)
+            // Basic Flow: 1.5. Kết thúc và Chuyển hướng
+            // Hệ thống kiểm tra quyền hạn và chuyển hướng
             if ("admin".equals(user.getRole())) {
                 resp.sendRedirect(req.getContextPath() + "/admin/dashboard");
             } else {
                 resp.sendRedirect(req.getContextPath() + "/lobby");
             }
         } else {
-            // Sai mật khẩu hoặc không tồn tại tài khoản -> Báo lỗi và quay lại trang đăng nhập
+            // Bao gồm xử lý cho 2 trường hợp:
+            // Exception Flow: 1.4.a. Sai thông tin định danh (User == null)
+            // Alternative Flow: 1.3.a. Sai thông tin đăng nhập (Xác thực BCrypt thất bại)
+            
+            // 1.3.a.1 / 1.4.a: Thiết lập thông báo lỗi
             req.setAttribute("errorMsg", "Tên đăng nhập hoặc mật khẩu không đúng");
+            
+            // 1.3.a.2 / 1.4.a: Hệ thống chuyển hướng trả lại giao diện trang đăng nhập kèm thông báo lỗi
             req.getRequestDispatcher("/views/auth/login.jsp").forward(req, resp);
         }
     }
