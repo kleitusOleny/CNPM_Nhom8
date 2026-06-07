@@ -196,7 +196,7 @@
             <h2 class="text-xl font-bold text-primary">${currentGame.roomName}</h2>
             <span class="px-2 py-0.5 bg-slate-100 text-[10px] font-bold rounded uppercase">Bàn ${currentGame.boardSize}x${currentGame.boardSize}</span>
         </div>
-        <button onclick="location.href='${pageContext.request.contextPath}/lobby'" class="text-slate-500 font-bold hover:text-red-500 transition-colors">THOÁT</button>
+        <button id="btn-exit-room" class="text-slate-500 font-bold hover:text-red-500 transition-colors">THOÁT</button>
     </header>
 
     <main class="flex-1 flex flex-row overflow-hidden">
@@ -213,6 +213,7 @@
             <div class="w-full max-w-[650px] flex justify-between items-center mt-6">
                 <div class="flex gap-3">
                     <button id="btn-resign" class="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm">Đầu hàng</button>
+                    <button id="btn-undo" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm">Hồi cờ</button>
                     <button id="btn-pass" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">Bỏ lượt</button>
                 </div>
             </div>
@@ -222,16 +223,29 @@
             <c:set var="isBlack" value="${sessionScope.user eq currentGame.blackPlayer.username}" />
             <c:set var="opponent" value="${isBlack ? currentGame.whitePlayer : currentGame.blackPlayer}" />
 
-            <div class="bg-white p-4 rounded-xl border-t-4 border-slate-300 shadow-sm">
+            <div id="panel-opponent" class="bg-white p-4 rounded-xl border-t-4 border-slate-300 shadow-sm transition-all duration-300">
                 <div class="font-bold truncate text-slate-700">${opponent != null ? opponent.fullName : 'Chờ đối thủ...'}</div>
                 <div id="timer-opponent" class="text-3xl font-black text-red-500 mt-2">00:00</div>
-                <div id="periods-opponent" class="text-xs font-bold bg-red-50 text-red-600 inline-block px-2 py-1 rounded mt-1">BYO: 3</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div id="periods-opponent" class="text-xs font-bold bg-red-50 text-red-600 inline-block px-2 py-1 rounded">BYO: 3</div>
+                    <div class="text-xs font-medium text-slate-500">Tù binh: <span id="captures-opponent" class="font-bold text-slate-800">0</span></div>
+                </div>
+            </div>
+            
+            <div class="flex-1 bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden my-1">
+                <div class="text-sm font-bold text-slate-700 mb-2 border-b pb-1">Lịch sử nước đi</div>
+                <div id="move-history-container" class="flex-1 overflow-y-auto text-sm space-y-1 pr-1" style="max-height: 250px;">
+                    <!-- Lịch sử nước đi sẽ hiển thị ở đây -->
+                </div>
             </div>
 
-            <div class="mt-auto bg-white p-4 rounded-xl border-t-4 border-green-500 shadow-md">
+            <div id="panel-me" class="mt-auto bg-white p-4 rounded-xl border-t-4 border-green-500 shadow-md transition-all duration-300">
                 <div class="font-bold truncate text-slate-800">${sessionScope.displayName} (Bạn)</div>
                 <div id="timer-me" class="text-3xl font-black text-green-600 mt-2">00:00</div>
-                <div id="periods-me" class="text-xs font-bold bg-green-50 text-green-700 inline-block px-2 py-1 rounded mt-1">BYO: 3</div>
+                <div class="flex justify-between items-end mt-1">
+                    <div id="periods-me" class="text-xs font-bold bg-green-50 text-green-700 inline-block px-2 py-1 rounded">BYO: 3</div>
+                    <div class="text-xs font-medium text-slate-500">Tù binh: <span id="captures-me" class="font-bold text-slate-800">0</span></div>
+                </div>
             </div>
         </aside>
     </main>
@@ -253,19 +267,48 @@
             <button onclick="location.href='${pageContext.request.contextPath}/lobby'" class="w-full py-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors">QUAY VỀ SẢNH</button>
         </div>
     </div>
+    
+    <!-- Modal Thông báo chung (Custom Alert) -->
+    <div id="alert-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 p-4 transition-opacity">
+        <div class="bg-white rounded-xl w-full max-w-sm p-6 text-center shadow-2xl transform transition-all">
+            <h3 id="alert-title" class="text-xl font-bold text-slate-800 mb-2">Thông báo</h3>
+            <p id="alert-message" class="text-slate-500 mb-6 text-sm"></p>
+            <div id="alert-buttons" class="flex gap-3 justify-center">
+                <button onclick="closeAlert()" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors w-full">OK</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Xác nhận đầu hàng -->
+    <div id="resign-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 p-4">
+        <div class="bg-white rounded-xl w-full max-w-sm p-6 text-center shadow-2xl">
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Đầu hàng?</h3>
+            <p class="text-slate-500 mb-6 text-sm">Bạn có chắc chắn muốn nhận thua ván cờ này không? Hành động này không thể hoàn tác.</p>
+            <div class="flex gap-3">
+                <button id="btn-cancel-resign" class="flex-1 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors">Hủy bỏ</button>
+                <button id="btn-confirm-resign" class="flex-1 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">Xác nhận</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
     let timeState = {
         blackMain: 1800000, blackPeriods: 3,
         whiteMain: 1800000, whitePeriods: 3,
-        periodTime: 30000
+        periodTime: 30000,
+        blackCaptures: 0,
+        whiteCaptures: 0
     };
+    let currentByoYomi = { black: 30000, white: 30000 };
 
     let timerInterval = null;
     let currentTurn = "black";
     let isSelectingDead = false;
-    let isGameStarted = false; // Cờ kiểm soát trạng thái phòng
+    let isUndoRequested = false;
+    let isGameStarted = ('${currentGame.status}' === 'PLAYING'); // Cờ kiểm soát trạng thái phòng
+    let moveCount = 0; // Đếm số nước đi để hiển thị lịch sử
+    let hoverStone = null;
 
     const config = {
         id: "${currentGame.id}",
@@ -281,7 +324,7 @@
 
         // Bắt sự kiện bắt đầu game khi đủ người
         if (data.type === "GAME_STARTED") {
-            isGameStarted = true;
+            setGameStartedState(true);
             if (data.data) {
                 timeState = { ...timeState, ...data.data };
                 renderTimers();
@@ -307,15 +350,17 @@
             updateTurnUI();
         }
         else if (data.type === "INVALID") {
-            alert(data.data);
+            showAlert("Thông báo", data.data);
         }
         else if (data.type === "GAME_OVER") {
-            alert("Trận đấu kết thúc: " + data.data);
-            window.location.href = "${pageContext.request.contextPath}/lobby";
+            setGameStartedState(false);
+            showAlert("Trận đấu kết thúc", data.data, `
+                <button onclick="window.location.href='${pageContext.request.contextPath}/lobby'" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors w-full">Về Sảnh Chờ</button>
+            `);
         }
         else if (data.type === "START_DEAD_SELECTION") {
             isSelectingDead = true;
-            alert("Hai bên đã bỏ lượt. Hãy click chọn các quân chết rồi nhấn Xác nhận điểm.");
+            showAlert("Giai đoạn đếm điểm", "Hai bên đã bỏ lượt. Hãy click chọn các quân chết rồi nhấn Xác nhận điểm.");
             document.getElementById('gt-turn-text').innerText = "Giai đoạn xác nhận quân chết...";
             const btnPass = document.getElementById('btn-pass');
             btnPass.innerText = "Xác nhận điểm";
@@ -331,6 +376,7 @@
             });
         }
         else if (data.type === "FINAL_SCORE") {
+            setGameStartedState(false);
             const sc = data.data;
             document.getElementById('score-black').innerText = sc.black.toFixed(1);
             document.getElementById('score-white').innerText = sc.white.toFixed(1);
@@ -351,14 +397,97 @@
             });
         }
         else if (data.type === "PASS") {
-
+            const passColor = currentTurn === 'black' ? 'white' : 'black'; // currentTurn was already flipped before PASS broadcast
+            appendMoveHistory(-1, -1, passColor);
         }
-        else {
-            if (data.isHistory || data.color !== config.role) {
-                addStoneToUI(data.x, data.y, data.color);
+        else if (data.type === "UNDO_SUCCESS") {
+            isUndoRequested = false;
+            // Khôi phục lại bàn cờ và lịch sử
+            document.querySelectorAll('.gt-stone').forEach(s => s.remove());
+            document.getElementById('move-history-container').innerHTML = '';
+            moveCount = 0;
+            
+            const moves = data.data.moves;
+            if (moves) {
+                moves.forEach(m => {
+                    addStoneToUI(m.x, m.y, m.color, moveCount + 1);
+                    appendMoveHistory(m.x, m.y, m.color);
+                });
+            }
+            
+            currentTurn = data.data.nextTurn;
+            updateTurnUI();
+            showAlert("Hoàn tác", "Nước đi đã được hoàn tác.");
+        }
+        else if (data.type === "UNDO_REQUESTED") {
+            isUndoRequested = true;
+            showAlert("Yêu cầu hồi cờ", data.data, `
+                <button id="btn-reject-undo" class="flex-1 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors">Từ chối</button>
+                <button id="btn-accept-undo" class="flex-1 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">Đồng ý</button>
+            `);
+            document.getElementById('btn-reject-undo').onclick = () => {
+                ws.send(JSON.stringify({ type: "UNDO_REJECT", color: config.role }));
+                closeAlert();
+            };
+            document.getElementById('btn-accept-undo').onclick = () => {
+                ws.send(JSON.stringify({ type: "UNDO_PROPOSE", color: config.role }));
+                closeAlert();
+            };
+        }
+        else if (data.type === "UNDO_REJECTED") {
+            isUndoRequested = false;
+            showAlert("Từ chối hồi cờ", data.data);
+        }
+        else if (data.type === "MOVE" || (data.x !== undefined && data.y !== undefined)) {
+            // Xử lý nước đi được server xác nhận (hoặc lịch sử)
+            addStoneToUI(data.x, data.y, data.color, moveCount + 1);
+            appendMoveHistory(data.x, data.y, data.color);
+            
+            if (data.nextTurn) {
+                currentTurn = data.nextTurn;
+                updateTurnUI();
+            } else if (!data.isHistory) {
+                currentTurn = (data.color === 'black') ? 'white' : 'black';
+                updateTurnUI();
             }
         }
     };
+
+    function appendMoveHistory(x, y, color) {
+        moveCount++;
+        const container = document.getElementById('move-history-container');
+        const entry = document.createElement('div');
+        entry.className = "flex justify-between items-center bg-slate-50 p-1.5 rounded";
+        
+        const moveNumber = document.createElement('span');
+        moveNumber.className = "text-slate-400 font-mono text-xs w-6";
+        moveNumber.innerText = moveCount + ".";
+        
+        const playerBadge = document.createElement('span');
+        playerBadge.className = "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase " + (color === 'black' ? "bg-black text-white" : "bg-white text-black border border-slate-300");
+        playerBadge.innerText = color === 'black' ? "Đen" : "Trắng";
+        
+        const coord = document.createElement('span');
+        coord.className = "text-slate-700 font-medium font-mono text-xs";
+        
+        if (x === -1 && y === -1) {
+            coord.innerText = "Bỏ lượt";
+            coord.className += " italic text-slate-500";
+        } else {
+            // Chuyển đổi tọa độ (x, y) sang format như A1, C3...
+            const letters = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
+            const l = letters.charAt(x);
+            const n = config.size - y;
+            coord.innerText = `\${l}\${n}`;
+        }
+        
+        entry.appendChild(moveNumber);
+        entry.appendChild(playerBadge);
+        entry.appendChild(coord);
+        
+        container.appendChild(entry);
+        container.scrollTop = container.scrollHeight;
+    }
 
     function startClocks() {
         if (!isGameStarted) return;
@@ -366,14 +495,46 @@
         if (timerInterval) {
             clearInterval(timerInterval);
         }
+        
+        currentByoYomi.black = timeState.periodTime;
+        currentByoYomi.white = timeState.periodTime;
+
         timerInterval = setInterval(() => {
             if (currentTurn === 'black') {
                 if (timeState.blackMain > 0) {
                     timeState.blackMain -= 1000;
+                    if (timeState.blackMain <= 0) {
+                         currentByoYomi.black += timeState.blackMain;
+                         timeState.blackMain = 0;
+                    }
+                } else {
+                    currentByoYomi.black -= 1000;
+                    if (currentByoYomi.black <= 0) {
+                        timeState.blackPeriods--;
+                        if (timeState.blackPeriods >= 0) {
+                            currentByoYomi.black = timeState.periodTime;
+                        } else {
+                            currentByoYomi.black = 0;
+                        }
+                    }
                 }
             } else {
                 if (timeState.whiteMain > 0) {
                     timeState.whiteMain -= 1000;
+                    if (timeState.whiteMain <= 0) {
+                         currentByoYomi.white += timeState.whiteMain;
+                         timeState.whiteMain = 0;
+                    }
+                } else {
+                    currentByoYomi.white -= 1000;
+                    if (currentByoYomi.white <= 0) {
+                        timeState.whitePeriods--;
+                        if (timeState.whitePeriods >= 0) {
+                            currentByoYomi.white = timeState.periodTime;
+                        } else {
+                            currentByoYomi.white = 0;
+                        }
+                    }
                 }
             }
             renderTimers();
@@ -384,21 +545,27 @@
         const isIBlack = (config.role === 'black');
 
         const formatTime = (ms) => {
-            if (ms <= 0) return "00:30";
+            if (ms < 0) ms = 0;
             let seconds = Math.floor(ms / 1000);
             let m = Math.floor(seconds / 60).toString().padStart(2, '0');
             let s = (seconds % 60).toString().padStart(2, '0');
             return `\${m}:\${s}`;
         };
 
-        document.getElementById('timer-me').innerText = formatTime(isIBlack ? timeState.blackMain : timeState.whiteMain);
-        document.getElementById('periods-me').innerText = "BYO: " + (isIBlack ? timeState.blackPeriods : timeState.whitePeriods);
+        const blackDisp = timeState.blackMain > 0 ? timeState.blackMain : currentByoYomi.black;
+        const whiteDisp = timeState.whiteMain > 0 ? timeState.whiteMain : currentByoYomi.white;
 
-        document.getElementById('timer-opponent').innerText = formatTime(isIBlack ? timeState.whiteMain : timeState.blackMain);
-        document.getElementById('periods-opponent').innerText = "BYO: " + (isIBlack ? timeState.whitePeriods : timeState.blackPeriods);
+        document.getElementById('timer-me').innerText = formatTime(isIBlack ? blackDisp : whiteDisp);
+        document.getElementById('periods-me').innerText = "BYO: " + (isIBlack ? Math.max(0, timeState.blackPeriods) : Math.max(0, timeState.whitePeriods));
+
+        document.getElementById('timer-opponent').innerText = formatTime(isIBlack ? whiteDisp : blackDisp);
+        document.getElementById('periods-opponent').innerText = "BYO: " + (isIBlack ? Math.max(0, timeState.whitePeriods) : Math.max(0, timeState.blackPeriods));
+        
+        document.getElementById('captures-me').innerText = isIBlack ? (timeState.blackCaptures || 0) : (timeState.whiteCaptures || 0);
+        document.getElementById('captures-opponent').innerText = isIBlack ? (timeState.whiteCaptures || 0) : (timeState.blackCaptures || 0);
     }
 
-    function addStoneToUI(x, y, color) {
+    function addStoneToUI(x, y, color, moveNum) {
         if (document.querySelector(`[data-pos="\${x}-\${y}"]`)) {
             return false;
         }
@@ -434,14 +601,31 @@
         const textElement = document.getElementById('gt-turn-text');
         const dotElement = document.getElementById('gt-turn-dot');
 
-        textElement.innerText = isMyTurn ? `Lượt của bạn (\${config.role === 'black' ? 'Đen' : 'Trắng'})` : "Đang chờ đối thủ...";
+        textElement.innerText = isMyTurn ? `Lượt của bạn (\${config.role === 'black' ? 'Đen' : 'Trắng'}) - Nước thứ \${moveCount + 1}` : `Đang chờ đối thủ... - Nước thứ \${moveCount + 1}`;
         dotElement.className = "w-2.5 h-2.5 rounded-full " + (isMyTurn ? "bg-green-500 animate-pulse" : "bg-slate-300");
         document.getElementById('gt-interaction-layer').style.cursor = isMyTurn ? "crosshair" : "not-allowed";
+        
+        // Highlight panel
+        const panelMe = document.getElementById('panel-me');
+        const panelOpponent = document.getElementById('panel-opponent');
+        
+        if (isMyTurn) {
+            panelMe.classList.add('ring-4', 'ring-green-300', 'shadow-lg');
+            panelOpponent.classList.remove('ring-4', 'ring-slate-300', 'shadow-lg');
+        } else {
+            panelOpponent.classList.add('ring-4', 'ring-slate-300', 'shadow-lg');
+            panelMe.classList.remove('ring-4', 'ring-green-300', 'shadow-lg');
+        }
     }
 
     document.getElementById('gt-interaction-layer').addEventListener('click', (e) => {
         if (!isGameStarted) {
-            alert("Vui lòng chờ đối thủ vào phòng để bắt đầu!");
+            showAlert("Chưa bắt đầu", "Vui lòng chờ đối thủ vào phòng để bắt đầu!");
+            return;
+        }
+
+        if (isUndoRequested) {
+            showAlert("Đang chờ xác nhận", "Trận đấu đang tạm dừng để chờ phản hồi hồi cờ.");
             return;
         }
 
@@ -461,15 +645,48 @@
         const x = Math.round(((e.clientX - r.left) / r.width) * (config.size - 1));
         const y = Math.round(((e.clientY - r.top) / r.height) * (config.size - 1));
 
-        if (addStoneToUI(x, y, config.role)) {
-            currentTurn = (config.role === 'black') ? 'white' : 'black';
-            updateTurnUI();
-            ws.send(JSON.stringify({ type: "MOVE", x: x, y: y, color: config.role }));
+        // Nếu ô đã có quân cờ thì chặn ngay tại local
+        if (document.querySelector(`[data-pos="\${x}-\${y}"]`)) {
+            return;
+        }
+
+        // Gửi yêu cầu lên server. KHÔNG update UI ngay lập tức để tránh out-of-sync
+        // UI sẽ chỉ cập nhật khi server gửi về message type="MOVE"
+        ws.send(JSON.stringify({ type: "MOVE", x: x, y: y, color: config.role }));
+        if (hoverStone) hoverStone.style.display = 'none';
+    });
+
+    document.getElementById('gt-interaction-layer').addEventListener('mousemove', (e) => {
+        if (!isGameStarted || currentTurn !== config.role || isSelectingDead || isUndoRequested) {
+            if (hoverStone) hoverStone.style.display = 'none';
+            return;
+        }
+        
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = Math.round(((e.clientX - r.left) / r.width) * (config.size - 1));
+        const y = Math.round(((e.clientY - r.top) / r.height) * (config.size - 1));
+        
+        if (x >= 0 && x < config.size && y >= 0 && y < config.size) {
+            if (document.querySelector(`[data-pos="\${x}-\${y}"]`)) {
+                hoverStone.style.display = 'none';
+            } else {
+                hoverStone.style.display = 'block';
+                hoverStone.style.left = (x * config.spacing) + "%";
+                hoverStone.style.top = (y * config.spacing) + "%";
+                hoverStone.style.background = (config.role === 'black') ? "rgba(17, 17, 17, 0.5)" : "rgba(255, 255, 255, 0.5)";
+                if (config.role === 'white') hoverStone.style.border = "1px solid rgba(209, 213, 219, 0.5)";
+            }
+        } else {
+            hoverStone.style.display = 'none';
         }
     });
 
+    document.getElementById('gt-interaction-layer').addEventListener('mouseleave', () => {
+        if (hoverStone) hoverStone.style.display = 'none';
+    });
+
     document.getElementById('btn-pass').addEventListener('click', () => {
-        if (!isGameStarted) return;
+        if (!isGameStarted || isUndoRequested) return;
 
         if (isSelectingDead) {
             ws.send(JSON.stringify({ type: "CONFIRM_SCORE" }));
@@ -477,14 +694,39 @@
         }
         if (currentTurn === config.role) {
             ws.send(JSON.stringify({ type: "PASS", color: config.role }));
+            appendMoveHistory(-1, -1, config.role);
         }
+    });
+
+    document.getElementById('btn-undo').addEventListener('click', () => {
+        if (!isGameStarted || isUndoRequested) return;
+        
+        isUndoRequested = true;
+        ws.send(JSON.stringify({ type: "UNDO_PROPOSE", color: config.role }));
+        showAlert("Yêu cầu hồi cờ", "Đã gửi yêu cầu hồi cờ, vui lòng chờ đối thủ đồng ý.");
     });
 
     document.getElementById('btn-resign').addEventListener('click', () => {
         if (!isGameStarted) return;
-        if (confirm("Bạn có chắc chắn muốn đầu hàng?")) {
-            ws.send(JSON.stringify({ type: "RESIGN", color: config.role }));
-        }
+        
+        // Hiển thị modal custom thay cho confirm()
+        const modal = document.getElementById('resign-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    });
+
+    document.getElementById('btn-cancel-resign').addEventListener('click', () => {
+        const modal = document.getElementById('resign-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    });
+
+    document.getElementById('btn-confirm-resign').addEventListener('click', () => {
+        const modal = document.getElementById('resign-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        
+        ws.send(JSON.stringify({ type: "RESIGN", color: config.role }));
     });
 
     window.onload = () => {
@@ -502,7 +744,108 @@
             vLine.style.left = position + "%";
             gridLayer.appendChild(vLine);
         }
+        
+        // Khởi tạo hover stone
+        hoverStone = document.createElement('div');
+        hoverStone.id = 'gt-hover-stone';
+        const sizePercentage = (config.size === 19) ? 5.2 : 7.5;
+        hoverStone.style.width = sizePercentage + "%";
+        hoverStone.style.height = sizePercentage + "%";
+        hoverStone.style.display = 'none';
+        hoverStone.style.position = 'absolute';
+        hoverStone.style.borderRadius = '50%';
+        hoverStone.style.transform = 'translate(-50%, -50%)';
+        hoverStone.style.pointerEvents = 'none';
+        hoverStone.style.zIndex = '5';
+        document.getElementById('gt-interaction-layer').appendChild(hoverStone);
     };
+
+    // Hàm hiển thị Custom Alert thay cho alert() mặc định
+    function showAlert(title, message, buttonsHTML = null) {
+        document.getElementById('alert-title').innerText = title || "Thông báo";
+        document.getElementById('alert-message').innerText = message;
+        if (buttonsHTML) {
+            document.getElementById('alert-buttons').innerHTML = buttonsHTML;
+        } else {
+            document.getElementById('alert-buttons').innerHTML = `<button onclick="closeAlert()" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors w-full">OK</button>`;
+        }
+        
+        const modal = document.getElementById('alert-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeAlert() {
+        const modal = document.getElementById('alert-modal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    function setGameStartedState(started) {
+        isGameStarted = started;
+        const btnExit = document.getElementById('btn-exit-room');
+        const navLinks = document.querySelectorAll('nav a, nav button');
+        
+        if (started) {
+            if (btnExit) {
+                btnExit.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            navLinks.forEach(link => {
+                link.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+            window.onbeforeunload = function() {
+                return "Bạn đang trong trận đấu. Chắc chắn muốn thoát?";
+            };
+        } else {
+            if (btnExit) {
+                btnExit.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            navLinks.forEach(link => {
+                link.classList.remove('opacity-50', 'cursor-not-allowed');
+            });
+            window.onbeforeunload = null;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize state visually
+        setGameStartedState(isGameStarted);
+
+        const btnExit = document.getElementById('btn-exit-room');
+        if (btnExit) {
+            btnExit.addEventListener('click', (e) => {
+                if (isGameStarted) {
+                    showAlert("Đang trong trận đấu", "Không thể rời khỏi bàn cờ khi đang trong trận đấu. Vui lòng đầu hàng hoặc kết thúc ván để thoát.");
+                } else {
+                    window.location.href = '${pageContext.request.contextPath}/lobby';
+                }
+            });
+        }
+
+        const navLinks = document.querySelectorAll('nav a, nav button');
+        navLinks.forEach(link => {
+            const originalOnclick = link.getAttribute('onclick');
+            
+            link.addEventListener('click', (e) => {
+                if (isGameStarted) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showAlert("Đang trong trận đấu", "Không thể điều hướng khi đang trong trận đấu. Vui lòng đầu hàng hoặc kết thúc ván để thoát.");
+                } else {
+                    if (originalOnclick) {
+                        e.preventDefault();
+                        if (originalOnclick.includes('create-room')) {
+                            window.location.href = '${pageContext.request.contextPath}/create-room';
+                        }
+                    }
+                }
+            });
+
+            if (originalOnclick) {
+                link.removeAttribute('onclick');
+            }
+        });
+    });
 </script>
 </body>
 </html>

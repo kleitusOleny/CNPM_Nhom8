@@ -26,7 +26,7 @@ public class UserService {
         return new UserPageDTO(users, page, totalPages, totalUsers);
     }
 
-    // Đồng bộ nghiệp vụ Giao dịch (Transaction) + Ghi Log hệ thống của Admin giống GameService
+    // Bước 9.5 thay đổi role cho tài khoản
     public void updateUserRoleTx(Long targetUserId, String newRole, Long adminId) throws Exception {
         EntityManager em = emf.createEntityManager();
         try {
@@ -49,6 +49,7 @@ public class UserService {
             em.close();
         }
     }
+//    Bước 9.8. Xử lý và Cập nhật:
 
     public void deleteUserTx(Long targetUserId, Long adminId) throws Exception {
         EntityManager em = emf.createEntityManager();
@@ -74,4 +75,8 @@ public class UserService {
             em.close();
         }
     }
+    public User getUserById(Long id) {
+        return userDAO.findById(id);
+    }
+
 }
